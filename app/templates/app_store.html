@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% set active_page = "app_store" %}
+{% block title %}App Store — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>App Store</h2>
+  <p class="muted small">
+    One-click installers download the real upstream app, extract it into
+    the site you pick, and provision a fresh database for it. You'll
+    finish the app's own short setup wizard in your browser afterward —
+    same as every other one-click installer.
+  </p>
+
+  {% if not sites %}
+  <p class="muted">You need a PHP site first — create one under <a href="{{ base_url }}/sites">Website</a>, then come back here.</p>
+  {% else %}
+  {% set app_icons = {"wordpress": ("wordpress", "app-card-icon-blue"), "opencart": ("cart3", "app-card-icon-orange"),
+                       "joomla": ("globe", "app-card-icon-purple"), "owncloud": ("cloud-fill", "app-card-icon-green"),
+                       "laravel": ("filetype-php", "app-card-icon-orange")} %}
+  <div class="app-store-grid">
+    {% for key, label in apps.items() %}
+    <div class="app-card">
+      <div class="app-card-header">
+        <div class="app-card-icon {{ app_icons[key][1] }}">
+          <i class="bi bi-{{ app_icons[key][0] }}"></i>
+        </div>
+        <h3>{{ label }}</h3>
+      </div>
+      <form method="post" action="{{ base_url }}/app-store/install"
+            onsubmit="return confirm('Install {{ label }} into the selected site? Existing files there will be overwritten.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="app" value="{{ key }}">
+        <select name="site_id" required>
+          <option value="" disabled selected>Choose a site…</option>
+          {% for site in sites %}
+          <option value="{{ site.id }}">{{ site.domain }}</option>
+          {% endfor %}
+        </select>
+        {% if key == "opencart" %}
+        <select name="version">
+          {% for v in opencart_versions %}
+          <option value="{{ v }}" {{ "selected" if v == default_opencart_version }}>OpenCart {{ v }}{{ " (default)" if v == default_opencart_version }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        <button type="submit">Install {{ label }}</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h2 style="margin-top:36px;">CDN</h2>
+  <p class="muted small">
+    Connect an existing Cloudflare or Tencent EdgeOne zone to a site to purge its cache from here.
+    This doesn't manage DNS records — create the zone with the provider first, then connect it below.
+  </p>
+  {% if not sites %}
+  <p class="muted">You need a site first — create one under <a href="{{ base_url }}/sites">Website</a>.</p>
+  {% else %}
+  <div class="app-store-grid">
+    {% for provider_key, provider_label in cdn_providers.items() %}
+    <div class="app-card">
+      <div class="app-card-header">
+        <div class="app-card-icon {{ 'app-card-icon-orange' if provider_key == 'cloudflare' else 'app-card-icon-blue' }}">
+          <i class="bi bi-{{ 'cloud-fill' if provider_key == 'cloudflare' else 'broadcast-pin' }}"></i>
+        </div>
+        <h3>{{ provider_label }}</h3>
+      </div>
+
+      {% for site in sites if site.cdn_provider == provider_key %}
+      <div class="cdn-connected">
+        <span>{{ site.domain }}</span>
+        <form method="post" action="{{ base_url }}/app-store/cdn/purge" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="site_id" value="{{ site.id }}">
+          <button type="submit">Purge Cache</button>
+        </form>
+      </div>
+      {% endfor %}
+
+      <form method="post" action="{{ base_url }}/app-store/cdn/save">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="provider" value="{{ provider_key }}">
+        <select name="site_id" required>
+          <option value="" disabled selected>Choose a site…</option>
+          {% for site in sites %}
+          <option value="{{ site.id }}">{{ site.domain }}{{ " (connected)" if site.cdn_provider == provider_key }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="zone_id" placeholder="Zone ID" required>
+        <input type="password" name="api_token" placeholder="{{ 'SecretId' if provider_key == 'edgeone' else 'API Token' }}" required>
+        {% if provider_key == "edgeone" %}
+        <input type="password" name="secret_key" placeholder="SecretKey" required>
+        {% endif %}
+        <button type="submit">Connect {{ provider_label }}</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h2 style="margin-top:36px;">Server Software</h2>
+  <p class="muted small">
+    These run server-wide rather than into one site's document root.
+  </p>
+  {% set software_icons = {"apache": ("hdd-network", "app-card-icon-purple"), "waf": ("shield-lock", "app-card-icon-green"),
+                            "node_manager": ("layers", "app-card-icon-blue")} %}
+  <div class="app-store-grid">
+    {% for key, entry in server_software.items() %}
+    <div class="app-card">
+      <div class="app-card-header">
+        <div class="app-card-icon {{ software_icons[key][1] }}">
+          <i class="bi bi-{{ software_icons[key][0] }}"></i>
+        </div>
+        <h3>{{ entry.label }}</h3>
+      </div>
+      <p class="muted small">{{ entry.description }}</p>
+      {% if software_status[key] %}
+      <span class="status-pill status-ok">Installed</span>
+      {% if entry.manage_url %}
+      <a href="{{ base_url }}/{{ entry.manage_url }}">Manage &rarr;</a>
+      {% endif %}
+      {% else %}
+      <form method="post" action="{{ base_url }}/app-store/install-software"
+            onsubmit="return confirm('Install {{ entry.label }} on this server?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="software" value="{{ key }}">
+        <button type="submit">Install {{ entry.label }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2 style="margin-top:36px;">Security &amp; Tools</h2>
+  <p class="muted small">
+    Built on tools already on the server — nothing to install, just open and use.
+  </p>
+  {% set tool_icons = {"php_security": ("filetype-php", "app-card-icon-purple"), "tamper_proof": ("lock-fill", "app-card-icon-orange"),
+                        "disk_manager": ("hdd-stack", "app-card-icon-blue")} %}
+  <div class="app-store-grid">
+    {% for key, entry in tools.items() %}
+    <div class="app-card">
+      <div class="app-card-header">
+        <div class="app-card-icon {{ tool_icons[key][1] }}">
+          <i class="bi bi-{{ tool_icons[key][0] }}"></i>
+        </div>
+        <h3>{{ entry.label }}</h3>
+      </div>
+      <p class="muted small">{{ entry.description }}</p>
+      <a href="{{ base_url }}/{{ entry.url }}">Open &rarr;</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

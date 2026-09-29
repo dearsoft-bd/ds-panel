@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% set active_page = "waf" %}
+{% block title %}WAF — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>WAF</h2>
+
+  {% if not installed %}
+  <p class="muted">ModSecurity isn't installed on this server yet.</p>
+  <form method="post" action="{{ base_url }}/waf/install">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="db-btn-backup" style="padding:8px 16px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
+      Install WAF
+    </button>
+  </form>
+  <p class="muted small" style="margin-top:12px;">Or install it from the <a href="{{ base_url }}/app-store">App Store</a> page.</p>
+  {% else %}
+  <p class="muted small">
+    ModSecurity (nginx) + the OWASP Core Rule Set — applies to <b>every site on this server at once</b>,
+    not per-site. Starts in <b>Detection Only</b> mode (logs what it would have blocked, doesn't actually
+    block anything) so you can review real traffic before switching to Blocking mode.
+  </p>
+
+  <div class="overview-panel" style="max-width:560px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <div>
+        <b>WAF Status:</b>
+        <span class="status-pill {{ 'status-ok' if status.enabled else 'status-fail' }}">{{ "Enabled" if status.enabled else "Disabled" }}</span>
+      </div>
+      <form method="post" action="{{ base_url }}/waf/toggle" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="enabled" value="{{ 'off' if status.enabled else 'on' }}">
+        <button type="submit" class="{{ 'db-btn-delete' if status.enabled else 'db-btn-backup' }}" style="padding:8px 16px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
+          {{ "Disable" if status.enabled else "Enable" }} WAF
+        </button>
+      </form>
+    </div>
+
+    {% if status.enabled %}
+    <div>
+      <b>Mode:</b>
+      <form method="post" action="{{ base_url }}/waf/mode" style="display:inline; margin-left:8px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="mode" onchange="this.form.submit()">
+          <option value="DetectionOnly" {{ "selected" if status.mode == "DetectionOnly" }}>Detection Only (log, don't block)</option>
+          <option value="On" {{ "selected" if status.mode == "On" }}>Blocking (actively block matches)</option>
+        </select>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if status.enabled %}
+  <h3 style="margin-top:28px;">Recent Events</h3>
+  <pre class="log-viewer">{{ events }}</pre>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

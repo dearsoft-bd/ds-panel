@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+venv/
+instance/
+*.db
+
+# Real secrets — never publish these. Runtime config (with actual API
+# keys/OAuth secrets) lives outside this repo entirely at
+# /etc/ds-panel/config.json (see app/config.py), so it can never be
+# committed by accident.
+#
+# license-server/ and licensing-tools/ are excluded WHOLESALE (not just the
+# key/db files inside them) — they run the licensing/activation system for
+# DearSoft's OTHER commercial products (unrelated to DS Panel, which is MIT
+# and needs no license at all), and none of that belongs in a public repo.
+license.key
+license-server/
+licensing-tools/
+
+# Private business documents (registration numbers, addresses, personal
+# contact/payment details) — not source code, never belongs in a public repo.
+docs/

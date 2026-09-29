@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% set active_page = "docker" %}
+{% block title %}Docker — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Docker</h2>
+
+  {% if not available %}
+  <p class="muted">Docker isn't running on this server. Re-run install.sh, or check <code>systemctl status docker</code>.</p>
+  {% else %}
+  <p class="muted small">Every container on this server, whether it was started by this panel or manually via the CLI.</p>
+
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th></th></tr></thead>
+    <tbody>
+      {% for c in containers %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td class="muted mono">{{ c.image }}</td>
+        <td>
+          <span class="status-pill {{ 'status-ok' if c.running else 'status-fail' }}">{{ c.status }}</span>
+        </td>
+        <td class="muted">{{ c.ports or "—" }}</td>
+        <td class="row-actions">
+          <a href="{{ base_url }}/docker/{{ c.id }}/logs">Logs</a>
+          {% if c.running %}
+          <form method="post" action="{{ base_url }}/docker/{{ c.id }}/action" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="stop">
+            <button type="submit" class="link-button">Stop</button>
+          </form>
+          <form method="post" action="{{ base_url }}/docker/{{ c.id }}/action" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="restart">
+            <button type="submit" class="link-button">Restart</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ base_url }}/docker/{{ c.id }}/action" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="start">
+            <button type="submit" class="link-button">Start</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{{ base_url }}/docker/{{ c.id }}/remove" style="display:inline"
+                onsubmit="return confirm('Remove container {{ c.name }}? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No containers yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% set active_page = "mail_server" %}
+{% block title %}Mail Server — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Mail Server</h2>
+
+  {% if not available %}
+  <p class="muted">Postfix/Dovecot aren't running. Re-run install.sh, or check <code>systemctl status postfix dovecot</code>.</p>
+  {% else %}
+  <div class="flash flash-error" style="position:static; margin-bottom:20px;">
+    <b>Before relying on this for real mail:</b> most cloud providers (GCP included) block outbound
+    port 25 by default to fight spam. <b>Receiving</b> mail here works regardless — nothing blocks inbound 25.
+    <b>Sending</b> to external mail servers over raw SMTP (25) will silently fail to deliver until that's
+    unblocked (a support request to your cloud provider) or a smarthost/relay is configured. Port 587
+    (authenticated submission — what real mail clients use to send) isn't affected by that specific
+    restriction, but test it before depending on it.
+  </div>
+
+  <h3>Mail Domains</h3>
+  <p class="muted small">
+    Add a domain here, then point its <b>MX record</b> at this server's IP in your DNS — that's what
+    tells the internet where to deliver mail for <code>@yourdomain.com</code>.
+  </p>
+  <form method="post" action="{{ base_url }}/mail/domains/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="domain" placeholder="example.com" required>
+    <button type="submit">Add Domain</button>
+  </form>
+
+  <table class="data-table" style="margin-top:16px; max-width:520px;">
+    <thead><tr><th>Domain</th><th></th></tr></thead>
+    <tbody>
+      {% for d in domains %}
+      <tr>
+        <td>{{ d }}</td>
+        <td class="row-actions">
+          <form method="post" action="{{ base_url }}/mail/domains/{{ d }}/delete" style="display:inline"
+                onsubmit="return confirm('Remove mail domain {{ d }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="muted">No mail domains yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:32px;">Mailboxes</h3>
+  <form method="post" action="{{ base_url }}/mail/mailboxes/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="email" name="email" placeholder="you@example.com" required>
+    <input type="password" name="password" placeholder="password, min 8 chars" required autocomplete="off">
+    <button type="submit">Create Mailbox</button>
+  </form>
+  <p class="muted small">
+    Connect a mail client with IMAP host = this server, port 993 (SSL), and SMTP host = this server,
+    port 587 (STARTTLS) — username is the full email address.
+  </p>
+
+  <table class="data-table" style="margin-top:16px;">
+    <thead><tr><th>Email</th><th></th></tr></thead>
+    <tbody>
+      {% for m in mailboxes %}
+      <tr>
+        <td>{{ m.email }}</td>
+        <td class="row-actions">
+          <form method="post" action="{{ base_url }}/mail/mailboxes/{{ m.email }}/delete" style="display:inline"
+                onsubmit="return confirm('Remove mailbox {{ m.email }}? Its mail is kept on disk, only login access is removed.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="muted">No mailboxes yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

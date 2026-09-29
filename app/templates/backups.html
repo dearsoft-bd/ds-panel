@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% set active_page = "backups" %}
+{% block title %}Backups — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Backups</h2>
+  <p class="muted small">
+    Browse, download, restore, or delete scheduled backups. Turn Auto Backup on for a
+    <a href="{{ base_url }}/sites">Site</a> or <a href="{{ base_url }}/databases">Database</a> for simple
+    single-target scheduling, or set up a <a href="{{ base_url }}/backup-jobs">Backup Job</a> for full-server
+    backups and custom daily/weekly/monthly/custom schedules.
+  </p>
+
+  {% if not backup_groups %}
+  <p class="muted">No backups yet.</p>
+  {% else %}
+  <div class="backup-grid">
+    {% for group in backup_groups %}
+    <div class="backup-card">
+      <div class="backup-card-header">
+        <i class="bi bi-{{ 'globe2' if group.target_type == 'sites' else ('archive' if group.target_type == 'full' else 'database') }}"></i>
+        <div>
+          <div class="backup-card-title">{{ "Full Server Backup" if group.target_type == "full" else group.target_name }}</div>
+          <div class="muted small">{{ {"sites": "Site", "databases": "Database", "full": "Full Server"}[group.target_type] }} — {{ group.entries|length }} backup(s)</div>
+        </div>
+      </div>
+
+      <select class="backup-date-select" id="select-{{ group.target_type }}-{{ loop.index }}">
+        {% for item in group.entries %}
+        <option value="{{ item.filename }}" data-size="{{ item.size_human }}">{{ item.date }} ({{ item.size_human }})</option>
+        {% endfor %}
+      </select>
+
+      <div class="backup-card-actions">
+        <a class="db-btn-backup" href="#" onclick="return dsBackupAction(this, '{{ base_url }}/backups/download', '{{ group.target_type }}', '{{ group.target_name }}', 'select-{{ group.target_type }}-{{ loop.index }}', 'get');">
+          <i class="bi bi-download"></i> Download
+        </a>
+        {% if group.target_type != "full" %}
+        <button type="button" class="db-btn-edit" onclick="dsBackupAction(this, '{{ base_url }}/backups/restore', '{{ group.target_type }}', '{{ group.target_name }}', 'select-{{ group.target_type }}-{{ loop.index }}', 'post', true);">
+          <i class="bi bi-arrow-counterclockwise"></i> Restore
+        </button>
+        {% endif %}
+        <button type="button" class="db-btn-delete" onclick="dsBackupAction(this, '{{ base_url }}/backups/delete', '{{ group.target_type }}', '{{ group.target_name }}', 'select-{{ group.target_type }}-{{ loop.index }}', 'post', true);">
+          <i class="bi bi-trash3"></i> Delete
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-top:36px;">
+    <h3 style="margin:0;">Actions Log</h3>
+    <button type="button" class="db-btn-delete" onclick="dsClearBackupLog();">
+      <i class="bi bi-trash3"></i> Clear Log
+    </button>
+  </div>
+  <table class="data-table">
+    <thead><tr><th>When</th><th>Action</th><th>Target</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for row in log_rows %}
+      <tr>
+        <td class="muted">{{ row.created_at }}</td>
+        <td>{{ row.action }}</td>
+        <td class="muted">{{ row.target_type }} / {{ row.target_name }}</td>
+        <td>
+          {% if row.status == "success" %}
+          <span class="status-pill status-ok">Complete</span>
+          {% else %}
+          <span class="status-pill status-fail">Failed</span>
+          {% endif %}
+        </td>
+        <td class="muted">{{ row.detail }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No backup activity logged yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<form method="post" id="backup-action-form" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="type" id="backup-action-type">
+  <input type="hidden" name="name" id="backup-action-name">
+  <input type="hidden" name="file" id="backup-action-file">
+</form>
+
+<script>
+function dsClearBackupLog() {
+  if (!confirm('Clear the entire actions log? This cannot be undone.')) return false;
+  var form = document.getElementById('backup-action-form');
+  form.action = '{{ base_url }}/backups/clear-log';
+  document.getElementById('backup-action-type').value = '';
+  document.getElementById('backup-action-name').value = '';
+  document.getElementById('backup-action-file').value = '';
+  form.submit();
+}
+
+function dsBackupAction(el, url, targetType, targetName, selectId, method, confirmFirst) {
+  var select = document.getElementById(selectId);
+  var filename = select.value;
+
+  if (confirmFirst) {
+    var verb = url.indexOf('/restore') !== -1 ? 'Restore' : 'Delete';
+    var warning = verb === 'Restore'
+      ? 'Restore ' + targetName + ' from this backup? This overwrites current data with the backup contents.'
+      : 'Delete this backup of ' + targetName + '? This cannot be undone.';
+    if (!confirm(warning)) return false;
+  }
+
+  if (method === 'get') {
+    window.location = url + '?type=' + encodeURIComponent(targetType) + '&name=' + encodeURIComponent(targetName) + '&file=' + encodeURIComponent(filename);
+    return false;
+  }
+
+  var form = document.getElementById('backup-action-form');
+  form.action = url;
+  document.getElementById('backup-action-type').value = targetType;
+  document.getElementById('backup-action-name').value = targetName;
+  document.getElementById('backup-action-file').value = filename;
+  form.submit();
+  return false;
+}
+</script>
+{% endblock %}

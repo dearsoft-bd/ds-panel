@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set active_page = "app_store" %}
+{% block title %}PHP Code Security — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>PHP Code Security</h2>
+  <p class="muted small">
+    Disables a fixed set of dangerous PHP functions
+    (<span class="mono">{{ dangerous_functions|join(", ") }}</span>)
+    at the php.ini level. Applies to every site running that PHP version —
+    off by default so it never breaks an existing site without you choosing
+    to turn it on.
+  </p>
+
+  <table class="data-table" style="max-width:520px;">
+    <thead><tr><th>PHP Version</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for version, enabled in status.items() %}
+      <tr>
+        <td>PHP {{ version }}</td>
+        <td>
+          <span class="status-pill {{ 'status-ok' if enabled else 'status-fail' }}">
+            {{ "Enabled" if enabled else "Disabled" }}
+          </span>
+        </td>
+        <td class="row-actions">
+          <form method="post" action="{{ base_url }}/php-security/toggle"
+                onsubmit="return confirm('{{ (\"Disable\" if enabled else \"Enable\") }} PHP Code Security for PHP {{ version }}? This restarts php{{ version }}-fpm.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="php_version" value="{{ version }}">
+            <input type="hidden" name="enabled" value="{{ '' if enabled else 'on' }}">
+            <button type="submit" class="link-button {{ 'danger' if enabled }}">
+              {{ "Disable" if enabled else "Enable" }}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

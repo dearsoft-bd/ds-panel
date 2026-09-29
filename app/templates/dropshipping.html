@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% set active_page = "dropshipping" %}
+{% block title %}Dropshipping — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Dropshipping</h2>
+  <p class="muted small">
+    Source products from 1688, AliExpress, or Taobao and import them into one of your OpenCart
+    sites. Fulfillment then runs automatically in the background — see
+    <a href="{{ base_url }}/dropshipping/orders">Fulfillment Orders</a> for status.
+  </p>
+  <p class="muted small" style="background:rgba(245,158,11,0.1); padding:10px 14px; border-radius:8px;">
+    <i class="bi bi-exclamation-triangle"></i>
+    These platforms don't offer a simple standardized public API — you'll need your own account
+    with a real 1688/AliExpress/Taobao API provider (official Open Platform or a third-party
+    aggregator). Enter that provider's base URL and key/secret below.
+  </p>
+
+  <h3 style="margin-top:28px;">Providers</h3>
+  <div class="app-store-grid">
+    {% for key, label in platforms.items() %}
+    {% set p = providers[key] %}
+    <div class="app-card">
+      <div class="app-card-header">
+        <div class="app-card-icon app-card-icon-orange"><i class="bi bi-shop-window"></i></div>
+        <h3>{{ label }}</h3>
+      </div>
+      <form method="post" action="{{ base_url }}/dropshipping/providers">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="platform" value="{{ key }}">
+        <input type="text" name="api_base_url" placeholder="API base URL" value="{{ p.api_base_url if p else '' }}">
+        <input type="text" name="app_key" placeholder="App Key" value="{{ p.app_key if p else '' }}">
+        <input type="password" name="app_secret" placeholder="App Secret" value="{{ p.app_secret if p else '' }}">
+        <label class="checkbox-label">
+          <input type="checkbox" name="enabled" {{ "checked" if p and p.enabled }}>
+          Enabled
+        </label>
+        <button type="submit">Save</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  <h3 style="margin-top:28px;">Connected Sites</h3>
+  <p class="muted small">Pick which OpenCart site + database imported products (and fulfillment) apply to.</p>
+  {% if sites and databases %}
+  <form method="post" action="{{ base_url }}/dropshipping/connect-site" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="site_id" required>
+      <option value="" disabled selected>Choose a site…</option>
+      {% for site in sites %}
+      <option value="{{ site.id }}">{{ site.domain }}</option>
+      {% endfor %}
+    </select>
+    <select name="db_name" required>
+      <option value="" disabled selected>Choose a database…</option>
+      {% for db in databases %}
+      <option value="{{ db.db_name }}">{{ db.db_name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Connect</button>
+  </form>
+  {% else %}
+  <p class="muted">Create a PHP site and a database first (Website / Databases pages).</p>
+  {% endif %}
+
+  {% if linked_sites %}
+  <table class="data-table" style="margin-top:16px;">
+    <thead><tr><th>Site</th><th>Database</th><th></th></tr></thead>
+    <tbody>
+      {% for link in linked_sites %}
+      <tr>
+        <td>{{ link.domain }}</td>
+        <td class="muted">{{ link.db_name }}</td>
+        <td class="row-actions">
+          <form method="post" action="{{ base_url }}/dropshipping/disconnect-site" onsubmit="return confirm('Disconnect {{ link.domain }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" value="{{ link.id }}">
+            <button type="submit" class="link-button danger">Disconnect</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h3 style="margin-top:28px;">Search & Import</h3>
+  <form method="post" action="{{ base_url }}/dropshipping/search" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="platform" required>
+      {% for key, label in platforms.items() %}
+      <option value="{{ key }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="keyword" placeholder="Search keyword" required style="min-width:220px;">
+    <button type="submit">Search</button>
+  </form>
+
+  {% if search_results %}
+  <table class="data-table" style="margin-top:16px;">
+    <thead><tr><th></th><th>Title</th><th>Price</th><th></th></tr></thead>
+    <tbody>
+      {% for item in search_results %}
+      <tr>
+        <td>{% if item.image %}<img src="{{ item.image }}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px;">{% endif %}</td>
+        <td>{{ item.title }}<br><span class="muted small">{{ item.id }}</span></td>
+        <td class="muted">{{ item.price }}</td>
+        <td>
+          {% if linked_sites %}
+          <form method="post" action="{{ base_url }}/dropshipping/import" style="display:flex; gap:6px; align-items:center;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="platform" value="{{ search_platform }}">
+            <input type="hidden" name="product_id" value="{{ item.id }}">
+            <input type="hidden" name="title" value="{{ item.title }}">
+            <input type="hidden" name="price" value="{{ item.price }}">
+            <input type="hidden" name="source_url" value="{{ item.url }}">
+            <select name="link_id" required>
+              {% for link in linked_sites %}
+              <option value="{{ link.id }}">{{ link.domain }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit">Import</button>
+          </form>
+          {% else %}
+          <span class="muted small">Connect a site first</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not search_results %}
+      <tr><td colspan="4" class="muted">No results.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h3 style="margin-top:28px;">Recently Imported</h3>
+  <table class="data-table">
+    <thead><tr><th>Title</th><th>Platform</th><th>Site</th><th>Price</th><th>Imported</th></tr></thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td>{{ r.title }}</td>
+        <td class="muted">{{ platforms.get(r.platform, r.platform) }}</td>
+        <td class="muted">{{ r.domain }}</td>
+        <td class="muted">{{ r.price }}</td>
+        <td class="muted">{{ r.imported_at }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Nothing imported yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% set active_page = "files" %}
+{% block title %}Files — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Files</h2>
+
+  <div class="breadcrumbs">
+    <button type="button" class="toolbar-icon-btn small" onclick="history.back()" title="Back"><i class="bi bi-arrow-left"></i></button>
+    <button type="button" class="toolbar-icon-btn small" onclick="history.forward()" title="Forward"><i class="bi bi-arrow-right"></i></button>
+    <button type="button" class="toolbar-icon-btn small" onclick="location.reload()" title="Reload"><i class="bi bi-arrow-clockwise"></i></button>
+    <a href="{{ base_url }}/files?path="><i class="bi bi-house-door"></i> root</a>
+    {% for crumb in breadcrumbs %}
+      <span class="sep">/</span>
+      <a href="{{ base_url }}/files?path={{ crumb.rel_path }}">{{ crumb.name }}</a>
+    {% endfor %}
+  </div>
+  <p class="muted small mono" style="margin-top:-6px;">
+    Real server path: {{ absolute_path }}
+    {% if not current_path %}<span style="opacity:0.7;">(this is the root of all sites — {{ sites_root }})</span>{% endif %}
+  </p>
+
+  {% if clipboard %}
+  <div class="clipboard-banner">
+    <i class="bi bi-{{ 'clipboard-check' if clipboard.mode == 'copy' else 'scissors' }}"></i>
+    {{ clipboard.paths|length }} item(s) {{ 'copied' if clipboard.mode == 'copy' else 'cut' }}, ready to paste here.
+    <form method="post" action="{{ base_url }}/files/paste" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+      <button type="submit">Paste Here</button>
+    </form>
+    <form method="post" action="{{ base_url }}/files/paste" style="display:inline"
+          onsubmit="return confirm('This will move any existing item with the same name to Trash and replace it. Continue?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+      <input type="hidden" name="overwrite" value="1">
+      <button type="submit" class="danger-btn" title="Existing items with the same name are moved to Trash first, then replaced">Paste &amp; Replace</button>
+    </form>
+    <form method="post" action="{{ base_url }}/files/clipboard/clear" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+      <button type="submit" class="link-button">Cancel</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="file-toolbar">
+    <form method="post" action="{{ base_url }}/files/upload" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+      <input type="file" name="file" required>
+      <button type="submit">Upload</button>
+    </form>
+    <form method="post" action="{{ base_url }}/files/mkdir">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+      <input type="text" name="name" placeholder="new-folder" required>
+      <button type="submit">New Folder</button>
+    </form>
+    <form method="post" action="{{ base_url }}/files/mkfile">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+      <input type="text" name="name" placeholder="new-file.txt" required>
+      <button type="submit">New File</button>
+    </form>
+    <a href="{{ base_url }}/files/trash" class="toolbar-icon-btn" title="Deleted files — restore or delete forever">
+      <i class="bi bi-trash3"></i> Trash
+    </a>
+    {% if trash_rel_path %}
+    <a href="{{ base_url }}/files?path={{ trash_rel_path }}" class="toolbar-icon-btn" title="Unzipped archives kept here">
+      <i class="bi bi-file-earmark-zip"></i> Archives
+    </a>
+    {% endif %}
+    <button type="button" class="toolbar-icon-btn" onclick="toggleFileSettings()" title="File Manager settings">
+      <i class="bi bi-gear"></i> Settings
+    </button>
+  </div>
+
+  <div id="file-settings-panel" class="file-settings-panel" style="display:none;">
+    <form method="post" action="{{ base_url }}/files/settings">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="path" value="{{ current_path }}">
+
+      <label class="checkbox-label">
+        <input type="checkbox" name="show_hidden" {{ "checked" if show_hidden }}>
+        Show Hidden Files (dotfiles)
+      </label>
+
+      <fieldset>
+        <legend>Always open this directory in the future by default:</legend>
+        <label class="checkbox-label">
+          <input type="radio" name="default_path" value="" {{ "checked" if not default_path }}>
+          Home Directory (root)
+        </label>
+        {% for site in sites %}
+        <label class="checkbox-label">
+          <input type="radio" name="default_path" value="{{ site.domain }}" {{ "checked" if default_path == site.domain }}>
+          Document Root for: {{ site.domain }}
+        </label>
+        {% endfor %}
+      </fieldset>
+
+      <button type="submit">Save Settings</button>
+    </form>
+  </div>
+
+  <p class="muted small">
+    Tip: "Unzip" is a per-file action in each row — you don't need to check
+    its box first. The checkboxes are only for bulk actions below.
+    Row "Delete" moves an item to <a href="{{ base_url }}/files/trash">Trash</a> (recoverable);
+    to skip Trash and delete permanently, select items and check
+    "Permanently delete" before using the bulk Delete Selected button.
+  </p>
+
+  <form method="post" id="bulk-form" action="{{ base_url }}/files/bulk-delete">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="path" value="{{ current_path }}">
+    <input type="hidden" name="mode" id="bulk-clipboard-mode" value="copy">
+    <div class="bulk-toolbar" id="bulk-toolbar" style="display:none;">
+      <span id="bulk-count" class="muted small"></span>
+      <button type="button" class="link-button" onclick="selectAll()">Select All</button>
+      <button type="button" class="link-button" onclick="unselectAll()">Unselect All</button>
+      <button type="submit" formaction="{{ base_url }}/files/clipboard" onclick="return setClipboardMode('copy');">Copy</button>
+      <button type="submit" formaction="{{ base_url }}/files/clipboard" onclick="return setClipboardMode('cut');">Cut</button>
+      <button type="submit" formaction="{{ base_url }}/files/zip">Zip Selected</button>
+      <label class="checkbox-label">
+        <input type="checkbox" id="bulk-permanent" name="permanent">
+        Permanently delete (skip Trash)
+      </label>
+      <button type="submit" formaction="{{ base_url }}/files/bulk-delete" class="link-button danger" onclick="return confirmBulkDelete();">Delete Selected</button>
+    </div>
+
+    <table class="data-table">
+      <thead><tr><th style="width:24px;"></th><th>Name</th><th>Type</th><th>Permissions</th><th>Size</th><th>Last Modified</th><th></th></tr></thead>
+      <tbody>
+        {% if current_path %}
+        <tr>
+          <td></td>
+          <td colspan="6"><a href="{{ base_url }}/files?path={{ parent_path }}">.. (up)</a></td>
+        </tr>
+        {% endif %}
+        {% for e in entries %}
+        <tr class="file-row" oncontextmenu="return showContextMenu(event, '{{ e.rel_path }}', '{{ e.name }}', {{ 'true' if e.is_dir else 'false' }}, {{ 'true' if e.editable else 'false' }}, {{ 'true' if e.zippable else 'false' }}, '{{ e.mode }}', {{ 'true' if e.viewable else 'false' }});">
+          <td><input type="checkbox" name="selected" value="{{ e.rel_path }}" data-name="{{ e.name }}" class="row-check"></td>
+          <td>
+            <i class="bi bi-{{ e.icon }}"></i>
+            {% if e.is_dir %}
+              <a href="{{ base_url }}/files?path={{ e.rel_path }}">{{ e.name }}</a>
+            {% else %}
+              {{ e.name }}
+            {% endif %}
+          </td>
+          <td class="muted">{{ e.type }}</td>
+          <td class="muted mono">{{ e.mode }}</td>
+          <td class="muted">{{ e.size if e.size is not none else "" }}</td>
+          <td class="muted">{{ e.modified }}</td>
+          <td class="row-actions">
+            {% if e.editable %}<a href="{{ base_url }}/files/edit?path={{ e.rel_path }}">Edit</a>{% endif %}
+            {% if e.viewable %}<a href="{{ base_url }}/files/view?path={{ e.rel_path }}" target="_blank">View</a>{% endif %}
+            {% if not e.is_dir %}<a href="{{ base_url }}/files/download?path={{ e.rel_path }}">Download</a>{% endif %}
+            {% if e.zippable %}
+            <button type="button" class="link-button" onclick="unzipItem('{{ e.rel_path }}', '{{ e.name }}')">Unzip</button>
+            {% endif %}
+            <button type="button" class="link-button" onclick="renameItem('{{ e.rel_path }}', '{{ e.name }}')">Rename</button>
+            <button type="button" class="link-button" onclick="chmodItem('{{ e.rel_path }}', '{{ e.mode }}')">Perms</button>
+            <button type="button" class="link-button danger" onclick="deleteItem('{{ e.rel_path }}', '{{ e.name }}', false)">Delete</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">Empty.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+</div>
+
+<div id="context-menu" class="context-menu" style="display:none;">
+  <button type="button" onclick="ctxOpen()"><i class="bi bi-folder2-open"></i> Open</button>
+  <button type="button" id="ctx-edit" onclick="ctxEdit()"><i class="bi bi-pencil"></i> Edit</button>
+  <button type="button" id="ctx-view" onclick="ctxView()"><i class="bi bi-eye"></i> View</button>
+  <button type="button" id="ctx-download" onclick="ctxDownload()"><i class="bi bi-download"></i> Download</button>
+  <button type="button" id="ctx-unzip" onclick="ctxUnzip()"><i class="bi bi-file-earmark-zip"></i> Unzip</button>
+  <button type="button" onclick="ctxCopy()"><i class="bi bi-clipboard"></i> Copy</button>
+  <button type="button" onclick="ctxCut()"><i class="bi bi-scissors"></i> Cut</button>
+  <button type="button" onclick="ctxRename()"><i class="bi bi-input-cursor-text"></i> Rename</button>
+  <button type="button" onclick="ctxChmod()"><i class="bi bi-shield-lock"></i> Perms</button>
+  <button type="button" class="danger" onclick="ctxDelete()"><i class="bi bi-trash3"></i> Delete</button>
+</div>
+
+<form method="post" id="rename-form" action="{{ base_url }}/files/rename" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="path" id="rename-path">
+  <input type="hidden" name="new_name" id="rename-new-name">
+</form>
+<form method="post" id="chmod-form" action="{{ base_url }}/files/chmod" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="path" id="chmod-path">
+  <input type="hidden" name="mode" id="chmod-mode">
+</form>
+<form method="post" id="delete-form" action="{{ base_url }}/files/delete" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="path" id="delete-path">
+  <input type="hidden" name="permanent" id="delete-permanent">
+</form>
+<form method="post" id="unzip-form" action="{{ base_url }}/files/unzip" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="path" id="unzip-path">
+</form>
+<form method="post" id="single-clipboard-form" action="{{ base_url }}/files/clipboard" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="path" value="{{ current_path }}">
+  <input type="hidden" name="mode" id="single-clipboard-mode">
+  <input type="hidden" name="selected" id="single-clipboard-selected">
+</form>
+
+<script>
+function renameItem(relPath, oldName) {
+  var newName = prompt('Rename "' + oldName + '" to:', oldName);
+  if (!newName || newName === oldName) return;
+  document.getElementById('rename-path').value = relPath;
+  document.getElementById('rename-new-name').value = newName;
+  document.getElementById('rename-form').submit();
+}
+function chmodItem(relPath, currentMode) {
+  var mode = prompt('Set permissions (octal, e.g. 755) for:', currentMode);
+  if (!mode) return;
+  document.getElementById('chmod-path').value = relPath;
+  document.getElementById('chmod-mode').value = mode;
+  document.getElementById('chmod-form').submit();
+}
+function deleteItem(relPath, name, permanent) {
+  var msg = permanent
+    ? 'Permanently delete "' + name + '"? This cannot be undone — it will NOT go to Trash.'
+    : 'Move "' + name + '" to Trash?';
+  if (!confirm(msg)) return;
+  document.getElementById('delete-path').value = relPath;
+  document.getElementById('delete-permanent').value = permanent ? 'on' : '';
+  document.getElementById('delete-form').submit();
+}
+function toggleFileSettings() {
+  var panel = document.getElementById('file-settings-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+function unzipItem(relPath, name) {
+  document.getElementById('unzip-path').value = relPath;
+  document.getElementById('unzip-form').submit();
+}
+function clipboardItem(relPath, mode) {
+  document.getElementById('single-clipboard-mode').value = mode;
+  document.getElementById('single-clipboard-selected').value = relPath;
+  document.getElementById('single-clipboard-form').submit();
+}
+function selectAll() {
+  document.querySelectorAll('.row-check').forEach(function (c) { c.checked = true; });
+  updateBulkToolbar();
+}
+function unselectAll() {
+  document.querySelectorAll('.row-check').forEach(function (c) { c.checked = false; });
+  updateBulkToolbar();
+}
+function setClipboardMode(mode) {
+  var checked = document.querySelectorAll('.row-check:checked');
+  if (checked.length === 0) { alert('Select at least one item first.'); return false; }
+  document.getElementById('bulk-clipboard-mode').value = mode;
+  return true;
+}
+
+// ---- Right-click context menu ----
+var ctxState = null;
+function showContextMenu(evt, relPath, name, isDir, editable, zippable, mode, viewable) {
+  evt.preventDefault();
+  ctxState = { relPath: relPath, name: name, isDir: isDir, editable: editable, zippable: zippable, mode: mode, viewable: viewable };
+  document.getElementById('ctx-edit').style.display = editable ? '' : 'none';
+  document.getElementById('ctx-view').style.display = viewable ? '' : 'none';
+  document.getElementById('ctx-download').style.display = isDir ? 'none' : '';
+  document.getElementById('ctx-unzip').style.display = zippable ? '' : 'none';
+  var menu = document.getElementById('context-menu');
+  menu.style.display = 'block';
+  var maxX = window.innerWidth - 200;
+  var maxY = window.innerHeight - 260;
+  menu.style.left = Math.min(evt.pageX, maxX) + 'px';
+  menu.style.top = Math.min(evt.pageY, maxY) + 'px';
+  return false;
+}
+document.addEventListener('click', function () {
+  document.getElementById('context-menu').style.display = 'none';
+});
+function ctxOpen() {
+  if (!ctxState) return;
+  if (ctxState.isDir) window.location = '{{ base_url }}/files?path=' + encodeURIComponent(ctxState.relPath);
+  else if (ctxState.editable) window.location = '{{ base_url }}/files/edit?path=' + encodeURIComponent(ctxState.relPath);
+}
+function ctxEdit() { if (ctxState) window.location = '{{ base_url }}/files/edit?path=' + encodeURIComponent(ctxState.relPath); }
+function ctxView() { if (ctxState) window.open('{{ base_url }}/files/view?path=' + encodeURIComponent(ctxState.relPath), '_blank'); }
+function ctxDownload() { if (ctxState) window.location = '{{ base_url }}/files/download?path=' + encodeURIComponent(ctxState.relPath); }
+function ctxUnzip() { if (ctxState) unzipItem(ctxState.relPath, ctxState.name); }
+function ctxCopy() { if (ctxState) clipboardItem(ctxState.relPath, 'copy'); }
+function ctxCut() { if (ctxState) clipboardItem(ctxState.relPath, 'cut'); }
+function ctxRename() { if (ctxState) renameItem(ctxState.relPath, ctxState.name); }
+function ctxChmod() { if (ctxState) chmodItem(ctxState.relPath, ctxState.mode); }
+function ctxDelete() { if (ctxState) deleteItem(ctxState.relPath, ctxState.name, false); }
+function confirmBulkDelete() {
+  var checked = document.querySelectorAll('.row-check:checked');
+  var names = Array.prototype.map.call(checked, function (c) { return c.dataset.name; });
+  if (names.length === 0) return false;
+  var permanent = document.getElementById('bulk-permanent').checked;
+  return confirm(
+    (permanent ? 'Permanently delete ' : 'Move to Trash: ') + names.length + ' item(s)?\n\n' +
+    names.join('\n') +
+    (permanent ? '\n\nThis cannot be undone. Files and folders are removed immediately, not moved to Trash.' : '')
+  );
+}
+function updateBulkToolbar() {
+  var n = document.querySelectorAll('.row-check:checked').length;
+  document.getElementById('bulk-toolbar').style.display = n > 0 ? 'flex' : 'none';
+  document.getElementById('bulk-count').textContent = n + ' selected';
+}
+document.querySelectorAll('.row-check').forEach(function (c) {
+  c.addEventListener('change', updateBulkToolbar);
+});
+</script>
+{% endblock %}

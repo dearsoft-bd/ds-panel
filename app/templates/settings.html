@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+{% block title %}Settings — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Settings</h2>
+
+  <h3>Admin Account</h3>
+  <form method="post" action="{{ base_url }}/settings/account" class="add-site-form" style="flex-direction:column; align-items:flex-start; max-width:420px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label class="checkbox-label" style="margin-bottom:4px;">Current password (required to change anything below)</label>
+    <input type="password" name="current_password" placeholder="current password" required style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">New username (leave blank to keep "{{ current_username }}")</label>
+    <input type="text" name="new_username" placeholder="{{ current_username }}" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">New password (leave blank to keep unchanged)</label>
+    <input type="password" name="new_password" placeholder="new password, min 8 chars" style="width:100%;">
+    <input type="password" name="confirm_password" placeholder="confirm new password" style="width:100%; margin-top:8px;">
+
+    <button type="submit" style="margin-top:16px;">Save Changes</button>
+  </form>
+  <p class="muted small">Changing the password signs out every active session (including this one) — you'll need to log in again.</p>
+
+  <h3 style="margin-top:36px;">Google OAuth Login</h3>
+  <p class="muted small">
+    Status: <b>{{ "Enabled" if google_oauth_enabled else "Disabled" }}</b>.
+    Create credentials at <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>
+    (OAuth client ID → Web application), set its Authorized redirect URI to the value below, then paste the
+    Client ID/Secret here. Only the one email you set as "Allowed email" will ever be able to sign in this way.
+  </p>
+  <form method="post" action="{{ base_url }}/settings/oauth" class="add-site-form" style="flex-direction:column; align-items:flex-start; max-width:520px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label class="checkbox-label" style="margin-bottom:4px;">Redirect URI (paste this into Google Cloud Console)</label>
+    <input type="text" name="redirect_uri" value="{{ google_redirect_uri }}" style="width:100%;" class="mono">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">Client ID</label>
+    <input type="text" name="client_id" value="{{ google_client_id }}" placeholder="xxxxx.apps.googleusercontent.com" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">Client Secret</label>
+    <input type="password" name="client_secret" value="{{ google_client_secret }}" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">Allowed email (only this Google account can log in)</label>
+    <input type="email" name="allowed_email" value="{{ google_allowed_email }}" placeholder="you@gmail.com" style="width:100%;">
+
+    <button type="submit" style="margin-top:16px;">Save Google OAuth Settings</button>
+  </form>
+  <p class="muted small">Saving requires a panel restart to take effect: <code>sudo systemctl restart ds-panel</code> (I'll remind you after saving).</p>
+
+  <h3 style="margin-top:36px;">AI Assistant</h3>
+  <p class="muted small">
+    Status: <b>{{ "Using your own " ~ ai_provider ~ " key" if ai_provider and ai_api_key else "Using DearSoft's free AI (limited trial, no setup needed)" }}</b>.
+    Works out of the box — add your own API key below only if you want unlimited usage
+    or a different model. The AI can look up server status/sites/databases freely, but
+    restarting a service or triggering a backup always waits for you to confirm in the
+    <a href="{{ base_url }}/ai">AI</a> chat first.
+  </p>
+  <form method="post" action="{{ base_url }}/settings/ai" class="add-site-form" style="flex-direction:column; align-items:flex-start; max-width:520px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label class="checkbox-label" style="margin-bottom:4px;">Provider</label>
+    <select name="provider" style="width:100%;">
+      <option value="" {{ "selected" if not ai_provider }}>Not configured</option>
+      <option value="claude" {{ "selected" if ai_provider == "claude" }}>Claude (Anthropic)</option>
+      <option value="openai" {{ "selected" if ai_provider == "openai" }}>OpenAI</option>
+    </select>
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">API Key</label>
+    <input type="password" name="api_key" value="{{ ai_api_key }}" placeholder="sk-..." style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">Model (optional — leave blank for a sensible default)</label>
+    <input type="text" name="model" value="{{ ai_model }}" placeholder="e.g. claude-sonnet-4-5 or gpt-4o-mini" style="width:100%;">
+
+    <button type="submit" style="margin-top:16px;">Save AI Settings</button>
+  </form>
+  <p class="muted small">Saving requires a panel restart to take effect: <code>sudo systemctl restart ds-panel</code>.</p>
+
+  <h3 style="margin-top:36px;">Password Reset Email (SMTP)</h3>
+  <p class="muted small">
+    Status: <b>{{ "Configured" if smtp_host and smtp_from_address else "Not configured" }}</b>.
+    Used only to send "Forgot Password" reset links — not a general mailer. Point this at any SMTP relay
+    you already trust (Gmail app password, SendGrid, your domain's own mailbox, etc.); using an external
+    relay here (rather than this server's own bundled Mail Server) keeps reset emails reliable even on
+    hosts that block outbound port 25 for the panel's own mail server.
+  </p>
+  <form method="post" action="{{ base_url }}/settings/smtp" class="add-site-form" style="flex-direction:column; align-items:flex-start; max-width:520px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label class="checkbox-label" style="margin-bottom:4px;">SMTP Host</label>
+    <input type="text" name="smtp_host" value="{{ smtp_host }}" placeholder="smtp.gmail.com" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">SMTP Port</label>
+    <input type="number" name="smtp_port" value="{{ smtp_port }}" placeholder="587" style="width:100%;">
+
+    <label class="checkbox-label" style="margin-top:14px;">
+      <input type="checkbox" name="smtp_use_tls" {{ "checked" if smtp_use_tls }}>
+      Use STARTTLS (recommended, matches port 587)
+    </label>
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">SMTP Username</label>
+    <input type="text" name="smtp_username" value="{{ smtp_username }}" placeholder="you@gmail.com" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">SMTP Password {{ "(leave blank to keep saved password)" if smtp_password }}</label>
+    <input type="password" name="smtp_password" placeholder="{{ '••••••••' if smtp_password else 'app password / SMTP password' }}" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">"From" address</label>
+    <input type="email" name="smtp_from_address" value="{{ smtp_from_address }}" placeholder="no-reply@yourdomain.com" style="width:100%;">
+
+    <button type="submit" style="margin-top:16px;">Save SMTP Settings</button>
+  </form>
+  <p class="muted small">Saving requires a panel restart to take effect: <code>sudo systemctl restart ds-panel</code>. Each panel user also needs an email address on file (Account page) to receive reset links.</p>
+
+  <h3 style="margin-top:36px;">License</h3>
+  <table class="data-table" style="max-width:520px;">
+    <tbody>
+      <tr><td class="muted">Status</td><td>
+        <span class="status-pill {{ 'status-ok' if license_status.valid else 'status-fail' }}">
+          {{ "Licensed" if license_status.valid else "Unlicensed" }}
+        </span>
+      </td></tr>
+      {% if license_status.customer %}
+      <tr><td class="muted">Licensed to</td><td>{{ license_status.customer }}</td></tr>
+      {% endif %}
+      {% if license_status.expires_at %}
+      <tr><td class="muted">Expires</td><td>{{ license_status.expires_at[:10] }}</td></tr>
+      {% endif %}
+      {% if not license_status.valid %}
+      <tr><td class="muted">Reason</td><td>{{ license_status.reason }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  <p class="muted small">
+    Place a valid <span class="mono">license.key</span> next to the panel's install directory and restart the service to apply it.
+  </p>
+
+  <h3 style="margin-top:36px;">Custom Domain</h3>
+  <p class="muted small">
+    Status: <b>{{ "Enabled (" ~ panel_domain ~ ")" if panel_domain else "Disabled" }}</b>.
+    Point the domain's DNS A record at this server first, then set it here — nginx will
+    reverse-proxy that domain straight to the panel. You'll still need the full URL including
+    the security-entrance path below to actually log in; this just replaces the IP:port part.
+  </p>
+  <form method="post" action="{{ base_url }}/settings/domain" class="add-site-form" style="flex-direction:column; align-items:flex-start; max-width:520px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label class="checkbox-label" style="margin-bottom:4px;">Domain (leave blank to remove)</label>
+    <input type="text" name="domain" value="{{ panel_domain }}" placeholder="panel.example.com" style="width:100%;">
+
+    <label class="checkbox-label" style="margin:14px 0 4px;">Email (for Let's Encrypt, if issuing SSL)</label>
+    <input type="email" name="admin_email" placeholder="you@example.com" style="width:100%;">
+
+    <label class="checkbox-label" style="margin-top:14px;">
+      <input type="checkbox" name="issue_ssl">
+      Issue a free SSL certificate for this domain (Let's Encrypt)
+    </label>
+
+    <button type="submit" style="margin-top:16px;" onclick="return confirm('Apply this custom domain now? This writes an nginx config and reloads nginx immediately.');">Save Custom Domain</button>
+  </form>
+  <p class="muted small">This takes effect on nginx immediately; a panel restart is only needed to update what this page displays.</p>
+
+  <h3 style="margin-top:36px;">Panel Info</h3>
+  <table class="data-table" style="max-width:520px;">
+    <tbody>
+      <tr><td class="muted">Panel port</td><td>{{ panel_port }}</td></tr>
+      <tr><td class="muted">Security-entrance path</td><td class="mono">/{{ security_path }}/</td></tr>
+      <tr><td class="muted">phpMyAdmin port</td><td>{{ pma_port or "not installed" }}</td></tr>
+      <tr><td class="muted">Google OAuth login</td><td>{{ "Enabled" if google_oauth_enabled else "Disabled" }}</td></tr>
+      <tr><td class="muted">Custom domain</td><td>{{ panel_domain or "not set" }}</td></tr>
+    </tbody>
+  </table>
+  <p class="muted small">
+    The security-entrance path is what keeps this panel from being found by scanners — anything outside
+    it returns a generic 404. Never share it publicly.
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% set active_page = "ai" %}
+{% block title %}AI Assistant — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2 style="display:flex; align-items:center; gap:10px;">
+    <img id="ds-ai-face" src="https://dearsoft.com.bd/public/ds-ai-chat.png" alt="" style="width:32px; height:32px; border-radius:50%;">
+    AI Assistant
+  </h2>
+
+  {% if not ai_enabled %}
+  <p class="muted">
+    No AI provider configured yet. Add an API key under
+    <a href="{{ base_url }}/settings">Settings</a> to start chatting.
+  </p>
+  {% else %}
+  <div class="ai-layout">
+    <div class="ai-sidebar">
+      <form method="post" action="{{ base_url }}/ai/new">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="ai-new-chat"><i class="bi bi-plus-lg"></i> New Chat</button>
+      </form>
+      <div class="ai-conversation-list">
+        {% for c in conversations %}
+        <a href="{{ base_url }}/ai?c={{ c.id }}" class="ai-conversation-item {{ 'active' if active and active.id == c.id }}">
+          <span>{{ c.title }}</span>
+          <form method="post" action="{{ base_url }}/ai/delete" onsubmit="return confirm('Delete this chat?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" value="{{ c.id }}">
+            <button type="submit" class="link-button danger" title="Delete"><i class="bi bi-trash3"></i></button>
+          </form>
+        </a>
+        {% else %}
+        <p class="muted small">No conversations yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="ai-chat">
+      {% if not active %}
+      <div class="ai-welcome">
+        <img src="https://dearsoft.com.bd/public/ds-ai-chat.png" alt="" style="width:56px; height:56px; border-radius:50%;">
+        <p><b>I am DS Panel AI Support Assistant.</b><br>Start a new chat to ask about server status, sites, databases, or to restart a service / trigger a backup.</p>
+        <p class="muted small">Actions that change anything on the server always ask you to confirm first.</p>
+      </div>
+      {% else %}
+      <div class="ai-messages">
+        {% for m in display_messages %}
+        <div class="ai-message ai-message-{{ m.role }}">
+          {% if m.role == "tool" %}
+          <i class="bi bi-gear"></i> <span class="mono small">{{ m.text }}</span>
+          {% else %}
+          {{ m.text }}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if pending %}
+      <div class="ai-confirm-banner">
+        <span><i class="bi bi-exclamation-triangle"></i> The AI wants to run <b>{{ pending.name }}</b>{% if pending.args %} with {{ pending.args }}{% endif %} — allow it?</span>
+        <div>
+          <form method="post" action="{{ base_url }}/ai/confirm" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="conversation_id" value="{{ active.id }}">
+            <input type="hidden" name="approved" value="on">
+            <button type="submit" class="db-btn-backup">Confirm</button>
+          </form>
+          <form method="post" action="{{ base_url }}/ai/confirm" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="conversation_id" value="{{ active.id }}">
+            <button type="submit" class="db-btn-delete">Cancel</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <form method="post" action="{{ base_url }}/ai/send" class="ai-input-row">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="conversation_id" value="{{ active.id }}">
+        <input type="text" name="message" placeholder="Ask something or give an instruction…" autocomplete="off" required>
+        <button type="submit"><i class="bi bi-send"></i></button>
+      </form>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var EYES_OPEN = "https://dearsoft.com.bd/public/ds-ai-chat.png";
+  var EYES_CLOSED = "https://dearsoft.com.bd/public/ds-ai-chat2.png";
+  function blinkAll() {
+    document.querySelectorAll('#ds-ai-face, .ai-welcome img').forEach(function (img) {
+      img.src = EYES_CLOSED;
+      setTimeout(function () { img.src = EYES_OPEN; }, 150);
+    });
+  }
+  setInterval(blinkAll, 4000);
+})();
+</script>
+{% endblock %}

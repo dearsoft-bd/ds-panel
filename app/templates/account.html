@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% set active_page = "account" %}
+{% block title %}Account — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Account</h2>
+  <p class="muted small">
+    <b>Super Admin</b> can do everything, including managing every other account — the only role that can
+    create users, change roles, or restrict an Admin to specific sites. <b>Admin</b> has full access to
+    everything except user management — unless a Super Admin restricts it to one or more sites below, in
+    which case it can only see/manage those sites' Website and File Manager pages, nothing else at all.
+    <b>Viewer</b> can see every page but is blocked from any change. <b>Custom</b> can only see and use the
+    specific feature areas checked for that account — everything else is completely hidden, not just read-only.
+  </p>
+
+  <h3>Add User</h3>
+  <form method="post" action="{{ base_url }}/account/add" class="add-site-form" id="add-user-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="full_name" placeholder="full name">
+    <input type="email" name="email" placeholder="email@example.com">
+    <input type="text" name="username" placeholder="username" required>
+    <input type="text" name="password" placeholder="password (optional, min 8 — auto-generated if blank)" autocomplete="off">
+    <select name="role" id="add-user-role" onchange="
+        document.getElementById('add-user-perms').style.display = (this.value === 'custom') ? '' : 'none';
+        document.getElementById('add-user-scope').style.display = (this.value === 'admin') ? '' : 'none';">
+      {% for r in roles %}
+      <option value="{{ r }}" {{ "selected" if r == "viewer" }}>{{ r|replace('_', ' ')|capitalize }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Add User</button>
+    <div id="add-user-perms" style="display:none; flex-basis:100%; margin-top:10px;">
+      <div class="muted small" style="margin-bottom:6px;">Feature access for this Custom account:</div>
+      <div class="perm-checkbox-grid">
+        {% for key, label in features %}
+        <label><input type="checkbox" name="permissions" value="{{ key }}"> {{ label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div id="add-user-scope" style="display:none; flex-basis:100%; margin-top:10px;">
+      <label class="checkbox-label"><input type="checkbox" name="site_restricted"> Restrict to specific sites only (locks this Admin to just the checked site(s)' Website + File Manager — nothing else)</label>
+      <div class="perm-checkbox-grid" style="margin-top:8px;">
+        {% for s in sites %}
+        <label><input type="checkbox" name="site_scope" value="{{ s.id }}"> {{ s.domain }}</label>
+        {% else %}
+        <span class="muted small">No sites exist yet — create one on the Website page first.</span>
+        {% endfor %}
+      </div>
+    </div>
+  </form>
+
+  <table class="data-table" style="margin-top:20px;">
+    <thead><tr><th>Username</th><th>Full name</th><th>Email</th><th>Role</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}{{ " (you)" if u.id == current_user_id }}</td>
+        <td class="muted">{{ u.full_name or "—" }}</td>
+        <td class="muted">{{ u.email or "—" }}</td>
+        <td>
+          <form method="post" action="{{ base_url }}/account/{{ u.id }}/role" style="display:inline" id="role-form-{{ u.id }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select name="role" onchange="this.form.submit();">
+              {% for r in roles %}
+              <option value="{{ r }}" {{ "selected" if r == u.role }}>{{ r|replace('_', ' ')|capitalize }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </td>
+        <td class="muted">{{ u.created_at }}</td>
+        <td class="row-actions">
+          <form method="post" action="{{ base_url }}/account/{{ u.id }}/reset-password" style="display:inline"
+                onsubmit="return confirm('Reset the password for {{ u.username }}? A new one will be generated and shown once.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button">Reset Password</button>
+          </form>
+          {% if u.id != current_user_id %}
+          <form method="post" action="{{ base_url }}/account/{{ u.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete user {{ u.username }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger">Delete</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      <tr id="perm-row-{{ u.id }}" style="{{ '' if u.role == 'custom' else 'display:none;' }}">
+        <td colspan="6">
+          <form method="post" action="{{ base_url }}/account/{{ u.id }}/permissions">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="muted small" style="margin-bottom:6px;">Feature access for '{{ u.username }}':</div>
+            <div class="perm-checkbox-grid">
+              {% for key, label in features %}
+              <label><input type="checkbox" name="permissions" value="{{ key }}" {{ "checked" if key in u.permission_set }}> {{ label }}</label>
+              {% endfor %}
+            </div>
+            <button type="submit" style="margin-top:8px;">Save Permissions</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="scope-row-{{ u.id }}" style="{{ '' if u.role == 'admin' else 'display:none;' }}">
+        <td colspan="6">
+          <form method="post" action="{{ base_url }}/account/{{ u.id }}/site-scope">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="muted small" style="margin-bottom:6px;">
+              Restrict '{{ u.username }}' to specific sites only (unchecking every box below removes the
+              restriction — full admin access again):
+            </div>
+            <div class="perm-checkbox-grid">
+              {% for s in sites %}
+              <label><input type="checkbox" name="site_scope" value="{{ s.id }}" {{ "checked" if s.id in u.site_scope_set }}> {{ s.domain }}</label>
+              {% else %}
+              <span class="muted small">No sites exist yet.</span>
+              {% endfor %}
+            </div>
+            <button type="submit" style="margin-top:8px;">Save Site Restriction</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No users yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<style>
+  .perm-checkbox-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:6px 14px; }
+  .perm-checkbox-grid label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal; }
+</style>
+{% endblock %}

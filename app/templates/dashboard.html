@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+{% block title %}Dashboard — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Welcome back, {{ username }} 👋</h2>
+  <p class="muted">Here's what's running on this server right now.</p>
+
+  {% if stats %}
+  <div class="gauge-grid">
+    <div class="gauge-card">
+      <div class="gauge-ring" style="--pct:{{ stats.load_percent }};">
+        <span>{{ stats.load_percent }}%</span>
+      </div>
+      <div class="gauge-label">Load Average</div>
+      <div class="gauge-legend">
+        <div><span class="dot" style="background:var(--success)"></span>1 Min<b>{{ stats.load1 }}</b></div>
+        <div><span class="dot" style="background:var(--info)"></span>5 Min<b>{{ stats.load5 }}</b></div>
+        <div><span class="dot" style="background:var(--accent-glow)"></span>15 Min<b>{{ stats.load15 }}</b></div>
+      </div>
+      <div class="gauge-sub">{{ stats.load1 }} / {{ stats.cpu_count }} cores</div>
+    </div>
+    <div class="gauge-card">
+      <div class="gauge-ring" style="--pct:{{ stats.mem_percent }};">
+        <span>{{ stats.mem_percent }}%</span>
+      </div>
+      <div class="gauge-label">Memory Usage</div>
+      <div class="gauge-legend">
+        <div><span class="dot" style="background:var(--purple)"></span>Used<b>{{ stats.mem_used_gb }} GB</b></div>
+        <div><span class="dot" style="background:var(--info)"></span>Buffers<b>{{ stats.mem_buffers_gb }} GB</b></div>
+        <div><span class="dot" style="background:var(--success)"></span>Cache<b>{{ stats.mem_cached_gb }} GB</b></div>
+        <div><span class="dot" style="background:var(--border)"></span>Free<b>{{ stats.mem_free_gb }} GB</b></div>
+      </div>
+      <div class="gauge-sub">{{ stats.mem_used_gb }} / {{ stats.mem_total_gb }} GB</div>
+    </div>
+    <div class="gauge-card">
+      <div class="gauge-ring" style="--pct:{{ stats.disk_percent }};">
+        <span>{{ stats.disk_percent }}%</span>
+      </div>
+      <div class="gauge-label">Disk Usage</div>
+      <div class="gauge-legend">
+        <div><span class="dot" style="background:var(--error)"></span>Used<b>{{ stats.disk_used_gb }} GB</b></div>
+        <div><span class="dot" style="background:var(--info)"></span>Free<b>{{ stats.disk_free_gb }} GB</b></div>
+      </div>
+      <div class="gauge-sub">{{ stats.disk_used_gb }} / {{ stats.disk_total_gb }} GB</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="overview-traffic-grid">
+    <div class="overview-panel">
+      <h3>Overview</h3>
+      <div class="icon-stat-grid">
+        <a href="{{ base_url }}/sites" class="icon-stat-card">
+          <div class="icon-stat-icon icon-stat-blue"><i class="bi bi-globe2"></i></div>
+          <div class="icon-stat-value">{{ sites_count }}</div>
+          <div class="icon-stat-label">{{ "Your Website(s)" if site_restricted else "Websites" }}</div>
+          <div class="icon-stat-tag tag-success">Active</div>
+        </a>
+        {% if not site_restricted %}
+        <a href="{{ base_url }}/databases" class="icon-stat-card">
+          <div class="icon-stat-icon icon-stat-purple"><i class="bi bi-database"></i></div>
+          <div class="icon-stat-value">{{ databases_count }}</div>
+          <div class="icon-stat-label">Databases</div>
+          <div class="icon-stat-tag tag-muted">MySQL</div>
+        </a>
+        <a href="{{ base_url }}/mail" class="icon-stat-card">
+          <div class="icon-stat-icon icon-stat-green"><i class="bi bi-envelope"></i></div>
+          <div class="icon-stat-value">{{ mail_accounts }}</div>
+          <div class="icon-stat-label">Mail Accounts</div>
+          <div class="icon-stat-tag tag-success">Active</div>
+        </a>
+        <a href="{{ base_url }}/backups" class="icon-stat-card">
+          <div class="icon-stat-icon icon-stat-orange"><i class="bi bi-cloud-arrow-down"></i></div>
+          <div class="icon-stat-value">{{ backups_enabled }}</div>
+          <div class="icon-stat-label">Auto Backups</div>
+          <div class="icon-stat-tag {{ 'tag-success' if backups_enabled else 'tag-muted' }}">{{ "On" if backups_enabled else "Off" }}</div>
+        </a>
+        {% endif %}
+      </div>
+      <div class="overview-secondary-row">
+        <div class="overview-mini"><i class="bi bi-hdd-network"></i><div><div class="overview-mini-value">{{ server_info.hostname }}</div><div class="overview-mini-label">Hostname</div></div></div>
+        <div class="overview-mini"><i class="bi bi-cpu"></i><div><div class="overview-mini-value">{{ server_info.os_name }}</div><div class="overview-mini-label">Operating System</div></div></div>
+        <div class="overview-mini"><i class="bi bi-clock-history"></i><div><div class="overview-mini-value">{{ uptime }}</div><div class="overview-mini-label">Server Uptime</div></div></div>
+        <div class="overview-mini"><i class="bi bi-cpu-fill"></i><div><div class="overview-mini-value">{{ stats.cpu_count if stats else "—" }} Cores</div><div class="overview-mini-label">CPU</div></div></div>
+      </div>
+    </div>
+
+    <div class="overview-panel">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h3 style="margin:0;">Live Traffic</h3>
+        <span class="muted small" id="traffic-current"></span>
+      </div>
+      <canvas id="traffic-canvas" width="480" height="140" style="width:100%; height:140px; margin-top:10px;"></canvas>
+      <div class="traffic-legend">
+        <span><span class="traffic-dot traffic-dot-up"></span> Upstream <b id="traffic-up">0 KB/s</b></span>
+        <span><span class="traffic-dot traffic-dot-down"></span> Downstream <b id="traffic-down">0 KB/s</b></span>
+        <span class="muted">Total sent <b id="traffic-total-up">—</b></span>
+        <span class="muted">Total received <b id="traffic-total-down">—</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="overview-traffic-grid" style="margin-top:18px;">
+    <div class="overview-panel">
+      <h3>Quick Actions</h3>
+      <div class="quick-actions-grid">
+        <a href="{{ base_url }}/files" class="quick-action"><i class="bi bi-folder2-open"></i>File Manager</a>
+        {% if not site_restricted %}
+        <a href="{{ base_url }}/databases" class="quick-action"><i class="bi bi-database"></i>Databases</a>
+        <a href="{{ base_url }}/backups" class="quick-action"><i class="bi bi-cloud-arrow-down"></i>Backup</a>
+        <a href="{{ base_url }}/domains" class="quick-action"><i class="bi bi-diagram-3"></i>Domains</a>
+        {% endif %}
+        <a href="{{ base_url }}/sites" class="quick-action"><i class="bi bi-lock"></i>SSL Manager</a>
+        {% if not site_restricted %}
+        <a href="{{ base_url }}/terminal" class="quick-action"><i class="bi bi-terminal"></i>Terminal</a>
+        <a href="{{ base_url }}/cron" class="quick-action"><i class="bi bi-clock-history"></i>Cron Jobs</a>
+        <a href="{{ base_url }}/logs" class="quick-action"><i class="bi bi-file-text"></i>Logs</a>
+        <a href="{{ base_url }}/firewall" class="quick-action"><i class="bi bi-shield-check"></i>Security</a>
+        {% endif %}
+        <a href="{{ base_url }}/monitor" class="quick-action"><i class="bi bi-display"></i>Monitor</a>
+      </div>
+    </div>
+
+    <div class="overview-panel sysinfo-panel">
+      <h3>System Information</h3>
+      <table class="sysinfo-table">
+        <tr><td>OS</td><td>{{ server_info.os_name }}</td></tr>
+        <tr><td>Kernel</td><td>{{ server_info.kernel }}</td></tr>
+        <tr><td>CPU</td><td>{{ server_info.cpu_model }}</td></tr>
+        <tr><td>RAM</td><td>{{ stats.mem_used_gb ~ ' / ' ~ stats.mem_total_gb ~ ' GB (' ~ stats.mem_percent ~ '%)' if stats else "—" }}</td></tr>
+        <tr><td>Disk</td><td>{{ stats.disk_used_gb ~ ' / ' ~ stats.disk_total_gb ~ ' GB (' ~ stats.disk_percent ~ '%)' if stats else "—" }}</td></tr>
+        <tr><td>Uptime</td><td>{{ uptime }}</td></tr>
+      </table>
+      <svg class="sysinfo-illustration" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="24" y="14" width="72" height="24" rx="5" fill="#e5e7eb"/>
+        <rect x="24" y="14" width="72" height="24" rx="5" fill="#1f2430" fill-opacity="0.06"/>
+        <circle cx="34" cy="26" r="3" fill="#22c55e"/>
+        <rect x="44" y="23" width="34" height="6" rx="2" fill="#9ca3af"/>
+        <rect x="24" y="44" width="72" height="24" rx="5" fill="#e5e7eb"/>
+        <rect x="24" y="44" width="72" height="24" rx="5" fill="#1f2430" fill-opacity="0.03"/>
+        <circle cx="34" cy="56" r="3" fill="#f97316"/>
+        <rect x="44" y="53" width="34" height="6" rx="2" fill="#9ca3af"/>
+        <rect x="24" y="74" width="72" height="24" rx="5" fill="#e5e7eb"/>
+        <circle cx="34" cy="86" r="3" fill="#22c55e"/>
+        <rect x="44" y="83" width="34" height="6" rx="2" fill="#9ca3af"/>
+        <circle cx="96" cy="98" r="15" fill="#f97316"/>
+        <path d="M89 98l5 5 9-10" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var canvas = document.getElementById('traffic-canvas');
+  var ctx = canvas.getContext('2d');
+  var history = []; // {up, down} in bytes/sec
+  var maxPoints = 30;
+  var lastSample = null;
+
+  function humanRate(bytesPerSec) {
+    if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s';
+    if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+    return (bytesPerSec / (1024 * 1024)).toFixed(1) + ' MB/s';
+  }
+  function humanTotal(bytes) {
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
+  function draw() {
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    if (history.length < 2) return;
+
+    var maxVal = 1;
+    history.forEach(function (p) { maxVal = Math.max(maxVal, p.up, p.down); });
+
+    function drawLine(key, color, fill) {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      history.forEach(function (p, i) {
+        var x = (i / (maxPoints - 1)) * w;
+        var y = h - (p[key] / maxVal) * (h - 10) - 2;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      if (fill) {
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+      } else {
+        ctx.stroke();
+      }
+    }
+    drawLine('down', '#facc15');
+    drawLine('up', '#f97316', 'rgba(249, 115, 22, 0.12)');
+  }
+
+  function poll() {
+    fetch('{{ base_url }}/network.json').then(function (r) { return r.json(); }).then(function (data) {
+      var now = Date.now();
+      if (lastSample) {
+        var dt = (now - lastSample.time) / 1000;
+        var upRate = Math.max(0, (data.tx_bytes - lastSample.tx_bytes) / dt);
+        var downRate = Math.max(0, (data.rx_bytes - lastSample.rx_bytes) / dt);
+        history.push({ up: upRate, down: downRate });
+        if (history.length > maxPoints) history.shift();
+        document.getElementById('traffic-up').textContent = humanRate(upRate);
+        document.getElementById('traffic-down').textContent = humanRate(downRate);
+        document.getElementById('traffic-current').textContent = humanRate(upRate) + ' up / ' + humanRate(downRate) + ' down';
+        draw();
+      }
+      document.getElementById('traffic-total-up').textContent = humanTotal(data.tx_bytes);
+      document.getElementById('traffic-total-down').textContent = humanTotal(data.rx_bytes);
+      lastSample = { time: now, tx_bytes: data.tx_bytes, rx_bytes: data.rx_bytes };
+    }).catch(function () {});
+  }
+
+  poll();
+  setInterval(poll, 2000);
+})();
+</script>
+{% endblock %}

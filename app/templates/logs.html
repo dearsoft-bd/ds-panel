@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set active_page = "logs" %}
+{% block title %}Logs — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Logs</h2>
+
+  <form method="get" action="{{ base_url }}/logs" class="add-site-form">
+    <select name="source">
+      {% for key, src in sources.items() %}
+      <option value="{{ key }}" {{ "selected" if key == source_key }}>{{ src.label }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="grep" placeholder="filter (plain text, e.g. a domain)" value="{{ grep }}">
+    <select name="lines">
+      {% for n in [100, 200, 500, 1000, 2000] %}
+      <option value="{{ n }}" {{ "selected" if n == lines }}>{{ n }} lines</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Refresh</button>
+  </form>
+  <p class="muted small">Log sources are fixed and read-only — not arbitrary file paths.</p>
+
+  <pre class="log-viewer">{{ content }}</pre>
+</div>
+<script>
+  var viewer = document.querySelector('.log-viewer');
+  if (viewer) viewer.scrollTop = viewer.scrollHeight;
+</script>
+{% endblock %}

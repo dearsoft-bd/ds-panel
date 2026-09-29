@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% set active_page = "terminal" %}
+{% block title %}Terminal — DS Panel{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<div class="page">
+  <h2>Terminal</h2>
+  <p class="muted small">
+    A real root shell, reachable from your browser. Off by default —
+    understand the risk before enabling: anyone who compromises your panel
+    login gets full server access through this.
+  </p>
+
+  <form method="post" action="{{ base_url }}/terminal/toggle" style="margin: 16px 0;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if enabled %}
+      <input type="hidden" name="enable" value="0">
+      <button type="submit" class="danger-btn" style="padding:8px 18px;border:none;border-radius:6px;color:#fff;cursor:pointer;">Disable Terminal</button>
+    {% else %}
+      <input type="hidden" name="enable" value="1">
+      <button type="submit" style="padding:8px 18px;background:linear-gradient(135deg,var(--accent),var(--accent-glow));border:none;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;">Enable Terminal</button>
+    {% endif %}
+  </form>
+
+  {% if enabled %}
+    <div id="term" style="background:#000;border-radius:10px;padding:8px;border:1px solid var(--border);"></div>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script>
+    (function () {
+      var term = new Terminal({ cursorBlink: true, fontSize: 13, theme: { background: '#000000' } });
+      var fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(document.getElementById('term'));
+      fitAddon.fit();
+
+      var ws = new WebSocket("{{ ws_url }}");
+      ws.onopen = function () {
+        term.write('\r\n\x1b[32mConnected.\x1b[0m\r\n');
+        ws.send("\x01RESIZE:" + term.cols + "," + term.rows);
+      };
+      ws.onmessage = function (evt) { term.write(evt.data); };
+      ws.onclose = function () { term.write('\r\n\x1b[31mDisconnected.\x1b[0m\r\n'); };
+      term.onData(function (data) { if (ws.readyState === 1) ws.send(data); });
+      term.onResize(function (size) {
+        if (ws.readyState === 1) ws.send("\x01RESIZE:" + size.cols + "," + size.rows);
+      });
+      window.addEventListener('resize', function () { fitAddon.fit(); });
+    })();
+    </script>
+  {% endif %}
+</div>
+{% endblock %}

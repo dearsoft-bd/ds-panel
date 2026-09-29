@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% set active_page = "ssh_access" %}
+{% block title %}SSH Access — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>SSH Access</h2>
+  <p class="muted small">
+    Manage which public keys can SSH into this server, per system user. This only edits
+    <code>authorized_keys</code> — it never touches the SSH server's own config (port, root login,
+    password auth), since a mistake there can lock out access entirely with no recovery
+    except the cloud provider's own console.
+  </p>
+
+  <form method="get" action="{{ base_url }}/ssh-access" class="add-site-form">
+    <select name="user" onchange="this.form.submit()">
+      {% for u in users %}
+      <option value="{{ u.username }}" {{ "selected" if u.username == selected_user }}>
+        {{ u.username }}{{ " (root)" if u.username == "root" }} — {{ u.key_count }} key(s)
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if selected_user %}
+  <h3 style="margin-top:28px;">Add a key for {{ selected_user }}</h3>
+  <form method="post" action="{{ base_url }}/ssh-access/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="user" value="{{ selected_user }}">
+    <input type="text" name="key" placeholder="ssh-ed25519 AAAA... (paste the .pub file contents)" style="flex:2; min-width:320px;" required>
+    <input type="text" name="label" placeholder="label (e.g. my-laptop)" style="max-width:160px;">
+    <button type="submit">Add Key</button>
+  </form>
+  <p class="muted small">
+    Paste the <b>.pub</b> file's contents only — that's the public key, safe to share.
+    The matching private key file (no <code>.pub</code> extension) must stay on your own computer and never be pasted anywhere, including here.
+  </p>
+
+  <table class="data-table" style="margin-top:20px;">
+    <thead><tr><th>Type</th><th>Fingerprint (last chars)</th><th>Label</th><th></th></tr></thead>
+    <tbody>
+      {% for k in keys %}
+      <tr>
+        <td>{{ k.type }}</td>
+        <td class="mono muted">…{{ k.fingerprint }}</td>
+        <td class="muted">{{ k.comment or "—" }}</td>
+        <td class="row-actions">
+          <button type="button" class="link-button" onclick="toggleKey({{ loop.index0 }})">View</button>
+          <button type="button" class="link-button" onclick="copyKey({{ loop.index0 }})">Copy</button>
+          <form method="post" action="{{ base_url }}/ssh-access/delete" style="display:inline"
+                onsubmit="return confirm('Remove this key for {{ selected_user }}? Make sure you have another way in first.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user" value="{{ selected_user }}">
+            <input type="hidden" name="index" value="{{ k.index }}">
+            <button type="submit" class="link-button danger">Revoke</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="key-row-{{ loop.index0 }}" style="display:none;">
+        <td colspan="4">
+          <code class="mono" id="key-text-{{ loop.index0 }}" style="word-break:break-all; display:block; padding:10px; background:var(--bg); border-radius:8px;">{{ k.raw }}</code>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No keys on file for {{ selected_user }} yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+<script>
+function toggleKey(i) {
+  var row = document.getElementById('key-row-' + i);
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+function copyKey(i) {
+  var text = document.getElementById('key-text-' + i).textContent;
+  navigator.clipboard.writeText(text);
+}
+</script>
+{% endblock %}

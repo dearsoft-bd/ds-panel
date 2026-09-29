@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% set active_page = "cron" %}
+{% block title %}Cron — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Cron Jobs</h2>
+  <p class="muted small">Runs as root. Standard 5-field schedule (minute hour day month weekday).</p>
+
+  <form method="post" action="{{ base_url }}/cron/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="schedule" placeholder="*/5 * * * *" required>
+    <input type="text" name="command" placeholder="/path/to/script.sh" required style="flex:1;min-width:200px;">
+    <button type="submit">Add Job</button>
+  </form>
+
+  <table class="data-table">
+    <thead><tr><th>Schedule + Command</th><th></th></tr></thead>
+    <tbody>
+      {% for idx, job in jobs %}
+      <tr>
+        <td><code>{{ job }}</code></td>
+        <td>
+          <form method="post" action="{{ base_url }}/cron/{{ idx }}/delete"
+                onsubmit="return confirm('Delete this cron job?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="muted">No cron jobs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

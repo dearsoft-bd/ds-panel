@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% set active_page = "dropshipping" %}
+{% block title %}Fulfillment Orders — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Fulfillment Orders</h2>
+  <p class="muted small">
+    A background job (every few minutes) scans your connected sites' orders for sourced
+    products and tries to place the matching purchase automatically. Failed attempts can be
+    retried here once the issue is fixed (e.g. provider API key).
+  </p>
+
+  <table class="data-table">
+    <thead><tr><th>Site</th><th>Order #</th><th>Product</th><th>Platform</th><th>Source Order</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td>{{ o.domain }}</td>
+        <td class="muted">#{{ o.opencart_order_id }}</td>
+        <td>{{ o.title }}</td>
+        <td class="muted">{{ o.platform }}</td>
+        <td class="muted">{{ o.source_order_id or "—" }}</td>
+        <td>
+          {% if o.status == "placed" %}
+          <span class="status-pill status-ok">Placed</span>
+          {% elif o.status == "failed" %}
+          <span class="status-pill status-fail">Failed</span>
+          {% else %}
+          <span class="status-pill">{{ o.status|capitalize }}</span>
+          {% endif %}
+          {% if o.detail %}<div class="muted small">{{ o.detail }}</div>{% endif %}
+        </td>
+        <td>
+          {% if o.status == "failed" %}
+          <form method="post" action="{{ base_url }}/dropshipping/orders/{{ o.id }}/retry">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button">Retry</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">No fulfillment orders yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% set active_page = "app_store" %}
+{% block title %}Disk Mount Manager — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Disk Mount Manager</h2>
+  <p class="muted small">
+    Lists disks/partitions and lets you mount or unmount an already-formatted
+    one on demand, under <span class="mono">/mnt/dearsoft/&lt;device&gt;</span>.
+    This never edits /etc/fstab, so mounts made here don't survive a reboot —
+    that trade-off is deliberate: a bad fstab entry can leave a server unable
+    to boot, and nothing here can do that.
+  </p>
+
+  <table class="data-table">
+    <thead><tr><th>Device</th><th>Size</th><th>Filesystem</th><th>Mount Point</th><th></th></tr></thead>
+    <tbody>
+      {% for d in devices %}
+      <tr>
+        <td class="mono">/dev/{{ d.name }}</td>
+        <td class="muted">{{ d.size or "—" }}</td>
+        <td class="muted">{{ d.fstype or "—" }}</td>
+        <td class="muted">{{ d.mountpoint or "not mounted" }}</td>
+        <td class="row-actions">
+          {% if d.mountpoint %}
+          <form method="post" action="{{ base_url }}/disk-manager/unmount" onsubmit="return confirm('Unmount /dev/{{ d.name }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="name" value="{{ d.name }}">
+            <button type="submit" class="link-button danger">Unmount</button>
+          </form>
+          {% elif d.fstype %}
+          <form method="post" action="{{ base_url }}/disk-manager/mount">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="name" value="{{ d.name }}">
+            <button type="submit" class="link-button">Mount</button>
+          </form>
+          {% else %}
+          <span class="muted small">No filesystem</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No block devices found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

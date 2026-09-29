@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% set active_page = "files" %}
+{% block title %}Edit {{ rel_path }} — DS Panel{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<style>
+  .CodeMirror { height: 560px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; }
+  .find-bar {
+    display: none; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 10px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap;
+  }
+  .find-bar input { padding: 6px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+  .find-bar button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; background: var(--accent); color: #fff; font-size: 12px; }
+  .find-bar .count { color: var(--muted); font-size: 12px; min-width: 70px; }
+</style>
+
+<div class="page">
+  <h2>Editing {{ rel_path }}</h2>
+  <p class="muted small">Ctrl+F to find/replace. Line numbers and syntax highlighting are on.</p>
+
+  <div class="find-bar" id="find-bar">
+    <input type="text" id="find-input" placeholder="Find">
+    <input type="text" id="replace-input" placeholder="Replace with">
+    <span class="count" id="find-count"></span>
+    <button type="button" onclick="findNext()">Next</button>
+    <button type="button" onclick="findPrev()">Prev</button>
+    <button type="button" onclick="replaceOne()">Replace</button>
+    <button type="button" onclick="replaceAll()">Replace All</button>
+    <button type="button" onclick="closeFindBar()">✕</button>
+  </div>
+
+  <form method="post" action="{{ base_url }}/files/save" id="edit-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="path" value="{{ rel_path }}">
+    <textarea name="content" id="code-textarea" spellcheck="false">{{ content }}</textarea>
+    <div class="form-actions" style="margin-top:12px;">
+      <button type="submit">Save</button>
+      <a href="{{ base_url }}/files?path={{ parent_path }}" class="link-button secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script>
+var cm = CodeMirror.fromTextArea(document.getElementById('code-textarea'), {
+  lineNumbers: true,
+  mode: "{{ cm_mode }}",
+  theme: "material-darker",
+  indentUnit: 4,
+  matchBrackets: true,
+});
+
+var findBar = document.getElementById('find-bar');
+var lastQuery = '';
+var matchMarks = [];
+
+function clearMarks() { matchMarks.forEach(function (m) { m.clear(); }); matchMarks = []; }
+
+function countAndHighlight(query) {
+  clearMarks();
+  if (!query) { document.getElementById('find-count').textContent = ''; return 0; }
+  var cursor = cm.getSearchCursor(query, {line: 0, ch: 0}, {caseFold: true});
+  var n = 0;
+  while (cursor.findNext()) {
+    matchMarks.push(cm.markText(cursor.from(), cursor.to(), {className: 'cm-searching'}));
+    n++;
+  }
+  document.getElementById('find-count').textContent = n + ' match' + (n === 1 ? '' : 'es');
+  return n;
+}
+
+function findNext() {
+  var query = document.getElementById('find-input').value;
+  if (query !== lastQuery) { countAndHighlight(query); lastQuery = query; }
+  var cursor = cm.getSearchCursor(query, cm.getCursor(), {caseFold: true});
+  if (cursor.findNext()) {
+    cm.setSelection(cursor.from(), cursor.to());
+    cm.scrollIntoView(cursor.from(), 80);
+  } else {
+    var restart = cm.getSearchCursor(query, {line: 0, ch: 0}, {caseFold: true});
+    if (restart.findNext()) { cm.setSelection(restart.from(), restart.to()); cm.scrollIntoView(restart.from(), 80); }
+  }
+}
+
+function findPrev() {
+  var query = document.getElementById('find-input').value;
+  var cursor = cm.getSearchCursor(query, cm.getCursor(), {caseFold: true});
+  if (cursor.findPrevious()) {
+    cm.setSelection(cursor.from(), cursor.to());
+    cm.scrollIntoView(cursor.from(), 80);
+  }
+}
+
+function replaceOne() {
+  var query = document.getElementById('find-input').value;
+  var replacement = document.getElementById('replace-input').value;
+  var sel = cm.getSelection();
+  if (sel && sel.toLowerCase() === query.toLowerCase()) {
+    cm.replaceSelection(replacement);
+  }
+  findNext();
+  countAndHighlight(query);
+}
+
+function replaceAll() {
+  var query = document.getElementById('find-input').value;
+  var replacement = document.getElementById('replace-input').value;
+  if (!query) return;
+  var cursor = cm.getSearchCursor(query, {line: 0, ch: 0}, {caseFold: true});
+  var n = 0;
+  cm.operation(function () {
+    while (cursor.findNext()) {
+      cursor.replace(replacement);
+      n++;
+    }
+  });
+  document.getElementById('find-count').textContent = 'Replaced ' + n;
+}
+
+function closeFindBar() {
+  findBar.style.display = 'none';
+  clearMarks();
+  cm.focus();
+}
+
+function openFindBarWithSelection() {
+  findBar.style.display = 'flex';
+  var sel = cm.getSelection();
+  var input = document.getElementById('find-input');
+  if (sel) {
+    input.value = sel;
+    lastQuery = sel;
+    countAndHighlight(sel);
+  }
+  input.focus();
+  input.select();
+  return false;
+}
+
+cm.setOption('extraKeys', {
+  'Ctrl-F': openFindBarWithSelection,
+  'Cmd-F': openFindBarWithSelection,
+});
+
+document.getElementById('find-input').addEventListener('input', function (e) {
+  lastQuery = e.target.value;
+  countAndHighlight(e.target.value);
+});
+document.getElementById('find-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); findNext(); }
+  if (e.key === 'Escape') { closeFindBar(); }
+});
+</script>
+<style>.cm-searching { background: rgba(250, 204, 21, 0.35); }</style>
+{% endblock %}

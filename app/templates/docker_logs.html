@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% set active_page = "docker" %}
+{% block title %}Container Logs — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Logs — <span class="mono">{{ container_id[:12] }}</span></h2>
+  <p class="muted small"><a href="{{ base_url }}/docker">&larr; Back to Docker</a></p>
+  <pre class="log-viewer">{{ log_text }}</pre>
+</div>
+{% endblock %}

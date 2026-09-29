@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% set active_page = "monitor" %}
+{% block title %}Monitor — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Monitor</h2>
+  <p class="muted small">Uptime: {{ uptime }} — Load average: {{ load["1min"] }} / {{ load["5min"] }} / {{ load["15min"] }} (1/5/15 min)</p>
+
+  {% if stats %}
+  <div class="gauge-grid">
+    <div class="gauge-card">
+      <div class="gauge-ring" style="--pct:{{ stats.load_percent }};">
+        <span>{{ stats.load_percent }}%</span>
+      </div>
+      <div class="gauge-label">Load Average</div>
+      <div class="gauge-sub">{{ stats.load1 }} / {{ stats.cpu_count }} cores</div>
+    </div>
+    <div class="gauge-card">
+      <div class="gauge-ring" style="--pct:{{ stats.mem_percent }};">
+        <span>{{ stats.mem_percent }}%</span>
+      </div>
+      <div class="gauge-label">Memory</div>
+      <div class="gauge-sub">{{ stats.mem_used_gb }} / {{ stats.mem_total_gb }} GB</div>
+    </div>
+    <div class="gauge-card">
+      <div class="gauge-ring" style="--pct:{{ stats.disk_percent }};">
+        <span>{{ stats.disk_percent }}%</span>
+      </div>
+      <div class="gauge-label">Disk</div>
+      <div class="gauge-sub">{{ stats.disk_used_gb }} / {{ stats.disk_total_gb }} GB</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <h3 style="margin-top:32px;">Services</h3>
+  <div class="backup-grid">
+    {% for s in services %}
+    <div class="backup-card" style="padding:16px 20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <span>{{ s.label }}</span>
+        <span class="status-pill {{ 'status-ok' if s.active else 'status-fail' }}">{{ "Running" if s.active else "Stopped" }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if not site_restricted %}
+  <h3 style="margin-top:32px;">Top Processes (by CPU)</h3>
+  <table class="data-table">
+    <thead><tr><th>PID</th><th>Process</th><th>CPU %</th><th>Memory %</th></tr></thead>
+    <tbody>
+      {% for p in processes %}
+      <tr>
+        <td class="mono muted">{{ p.pid }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.cpu }}%</td>
+        <td>{{ p.mem }}%</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No process data available.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

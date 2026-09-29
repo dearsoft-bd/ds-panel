@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set active_page = "firewall" %}
+{% block title %}Firewall — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Firewall</h2>
+  <p class="muted small">
+    Port-level allow/deny only (ufw). SSH (22) and this panel's own port
+    ({{ panel_port }}) can't be closed from here.
+  </p>
+
+  <form method="post" action="{{ base_url }}/firewall/allow" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="port" placeholder="port, e.g. 80" required>
+    <button type="submit">Allow Port</button>
+  </form>
+
+  <pre class="code-editor" style="min-height:200px;">{% for r in rules %}{{ r }}
+{% endfor %}</pre>
+
+  <form method="post" action="{{ base_url }}/firewall/deny" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="port" placeholder="port to close" required>
+    <button type="submit" class="danger-btn">Close Port</button>
+  </form>
+</div>
+{% endblock %}

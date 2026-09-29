@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% set active_page = "backup_jobs" %}
+{% block title %}Backup Jobs — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Backup Jobs</h2>
+  <p class="muted small">
+    Named, independently-scheduled backup jobs — full server, a single site, or a single database —
+    each on its own daily/weekly/monthly schedule, or a raw cron expression for full control.
+    Multiple jobs can run side by side. Browse/download/restore the files they produce on the
+    <a href="{{ base_url }}/backups">Backups</a> page.
+  </p>
+
+  <div class="overview-panel" style="max-width:640px;">
+    <h3>New Backup Job</h3>
+    <form method="post" action="{{ base_url }}/backup-jobs/create" class="backup-job-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label class="checkbox-label">Name</label>
+      <input type="text" name="name" placeholder="e.g. Nightly full backup" required>
+
+      <label class="checkbox-label" style="margin-top:12px;">What to back up</label>
+      <select name="job_type" id="job-type" onchange="dsUpdateJobTargetField();" required>
+        {% for key, label in job_types.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      <div id="job-target-site" style="margin-top:10px;">
+        <select name="target" id="job-target-site-select">
+          {% for site in sites %}
+          <option value="{{ site.domain }}">{{ site.domain }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="job-target-database" style="margin-top:10px; display:none;">
+        <select name="target" id="job-target-database-select" disabled>
+          {% for db in databases %}
+          <option value="{{ db.db_name }}">{{ db.db_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <label class="checkbox-label" style="margin-top:12px;">Schedule</label>
+      <select name="schedule_type" id="schedule-type" onchange="dsUpdateScheduleFields();" required>
+        {% for key, label in schedule_types.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      <div id="schedule-time-row" style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+        <input type="time" name="schedule_time" value="02:30">
+        <select name="schedule_weekday" id="schedule-weekday" style="display:none;">
+          {% for num, label in weekdays %}
+          <option value="{{ num }}" {{ "selected" if num == 1 }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <select name="schedule_day" id="schedule-day" style="display:none;">
+          {% for d in range(1, 29) %}
+          <option value="{{ d }}">Day {{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="schedule-custom-row" style="margin-top:10px; display:none;">
+        <input type="text" name="custom_cron" placeholder="30 2 * * * (minute hour day month weekday)" class="mono" style="width:100%;">
+        <p class="muted small" style="margin:4px 0 0;">Standard 5-field cron syntax — weekday 0=Sunday.</p>
+      </div>
+
+      <label class="checkbox-label" style="margin-top:12px;">Keep how many backups</label>
+      <input type="number" name="retention" value="7" min="1" max="90" style="width:100px;">
+
+      <button type="submit" style="margin-top:16px;">Create Backup Job</button>
+    </form>
+  </div>
+
+  <h3 style="margin-top:32px;">Existing Jobs</h3>
+  {% if not jobs %}
+  <p class="muted">No backup jobs yet — create one above.</p>
+  {% else %}
+  <div class="app-store-grid">
+    {% for job in jobs %}
+    <div class="app-card">
+      <div class="app-card-header">
+        <div class="app-card-icon {{ 'app-card-icon-orange' if job.job_type == 'full' else ('app-card-icon-blue' if job.job_type == 'site' else 'app-card-icon-purple') }}">
+          <i class="bi bi-{{ 'archive' if job.job_type == 'full' else ('globe2' if job.job_type == 'site' else 'database') }}"></i>
+        </div>
+        <h3>{{ job.name }}</h3>
+      </div>
+      <p class="muted small">
+        {{ job_types[job.job_type] }}{{ " — " ~ job.target if job.target }}<br>
+        {% if job.schedule_type == "custom" %}
+        Custom: <span class="mono">{{ job.custom_cron }}</span>
+        {% elif job.schedule_type == "weekly" %}
+        Weekly, {{ weekdays[job.schedule_weekday][1] }} at {{ job.schedule_time }}
+        {% elif job.schedule_type == "monthly" %}
+        Monthly, day {{ job.schedule_day }} at {{ job.schedule_time }}
+        {% else %}
+        Daily at {{ job.schedule_time }}
+        {% endif %}
+      </p>
+      <p class="muted small">
+        Keep {{ job.retention }} — Last run:
+        {% if job.last_run_at %}
+        {{ job.last_run_at[:16] }}
+        <span class="status-pill {{ 'status-ok' if job.last_status == 'success' else 'status-fail' }}">{{ job.last_status|capitalize }}</span>
+        {% else %}
+        never
+        {% endif %}
+      </p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <form method="post" action="{{ base_url }}/backup-jobs/{{ job.id }}/run-now" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit">Run Now</button>
+        </form>
+        <form method="post" action="{{ base_url }}/backup-jobs/{{ job.id }}/toggle" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="link-button">{{ "Disable" if job.enabled else "Enable" }}</button>
+        </form>
+        <form method="post" action="{{ base_url }}/backup-jobs/{{ job.id }}/delete" style="display:inline" onsubmit="return confirm('Delete backup job {{ job.name }}? Already-produced backup files are kept — only the schedule is removed.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="link-button danger">Delete</button>
+        </form>
+      </div>
+      {% if not job.enabled %}
+      <span class="status-pill status-fail" style="margin-top:8px;">Disabled</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function dsUpdateJobTargetField() {
+  var type = document.getElementById('job-type').value;
+  document.getElementById('job-target-site').style.display = type === 'site' ? '' : 'none';
+  document.getElementById('job-target-database').style.display = type === 'database' ? '' : 'none';
+  document.getElementById('job-target-site-select').disabled = type !== 'site';
+  document.getElementById('job-target-database-select').disabled = type !== 'database';
+}
+function dsUpdateScheduleFields() {
+  var type = document.getElementById('schedule-type').value;
+  document.getElementById('schedule-time-row').style.display = type === 'custom' ? 'none' : 'flex';
+  document.getElementById('schedule-custom-row').style.display = type === 'custom' ? '' : 'none';
+  document.getElementById('schedule-weekday').style.display = type === 'weekly' ? '' : 'none';
+  document.getElementById('schedule-day').style.display = type === 'monthly' ? '' : 'none';
+}
+dsUpdateJobTargetField();
+dsUpdateScheduleFields();
+</script>
+{% endblock %}

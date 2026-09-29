@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set active_page = "domains" %}
+{% block title %}Domains — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Domains</h2>
+  <p class="muted small">
+    Point additional domains (e.g. <code>www.example.com</code>) at a site that already has a primary domain —
+    both serve the exact same files/app, no separate document root. DNS for each alias must already point at
+    this server before you add it here.
+  </p>
+
+  {% if not sites %}
+  <p class="muted">Create a site first under <a href="{{ base_url }}/sites">Website</a>.</p>
+  {% else %}
+  <form method="post" action="{{ base_url }}/domains/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="site_id" required>
+      <option value="" disabled selected>Site to add a domain to…</option>
+      {% for site in sites %}
+      <option value="{{ site.id }}">{{ site.domain }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="domain" placeholder="www.example.com" required>
+    <input type="email" name="admin_email" placeholder="admin@example.com (only needed if site has SSL)">
+    <button type="submit">Add Domain</button>
+  </form>
+  <p class="muted small">If the site already has SSL enabled, the certificate is automatically expanded to cover the new domain too — that's why the email field exists.</p>
+
+  <table class="data-table" style="margin-top:20px;">
+    <thead><tr><th>Primary Domain</th><th>Additional Domains</th><th>SSL</th><th></th></tr></thead>
+    <tbody>
+      {% for site in sites %}
+      <tr>
+        <td>{{ site.domain }}</td>
+        <td class="muted">
+          {% set aliases = aliases_by_site.get(site.id, []) %}
+          {% if aliases %}
+            {% for alias in aliases %}
+              <div style="margin-bottom:4px;">
+                {{ alias.domain }}
+                <form method="post" action="{{ base_url }}/domains/{{ alias.id }}/delete" style="display:inline"
+                      onsubmit="return confirm('Remove {{ alias.domain }}? It will stop pointing to {{ site.domain }}.');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="link-button danger" style="display:inline; margin-left:6px;">✕</button>
+                </form>
+              </div>
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ "Yes" if site.ssl_enabled else "No" }}</td>
+        <td></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

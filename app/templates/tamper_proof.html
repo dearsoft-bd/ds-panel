@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% set active_page = "app_store" %}
+{% block title %}Website Tamper-proof — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Website Tamper-proof</h2>
+  <p class="muted small">
+    Locks a site's files AND directories so nothing — not even PHP-FPM, a
+    compromised upload, or root without first disabling this — can modify
+    or plant new files, using the filesystem's immutable attribute. Folders
+    commonly written to at runtime (uploads, cache, storage, logs, tmp,
+    image) are left unlocked so a protected site keeps working normally —
+    new product photo uploads still work; existing files can't be replaced
+    or new code files planted anywhere else.
+    Turn this off before you intend to edit the site's files yourself —
+    disabling requires typing the domain name to confirm.
+  </p>
+
+  {% if not sites %}
+  <p class="muted">You need a PHP site first — create one under <a href="{{ base_url }}/sites">Website</a>.</p>
+  {% else %}
+  <table class="data-table">
+    <thead><tr><th>Domain</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for site in sites %}
+      <tr>
+        <td>{{ site.domain }}</td>
+        <td>
+          <span class="status-pill {{ 'status-ok' if status[site.id] else 'status-fail' }}">
+            {{ "Protected" if status[site.id] else "Unprotected" }}
+          </span>
+        </td>
+        <td class="row-actions">
+          <form method="post" action="{{ base_url }}/tamper-proof/toggle"
+                onsubmit="return {{ 'confirmDisable(this, ' ~ (site.domain | tojson) ~ ')' if status[site.id] else ('confirm(\'Enable tamper-proofing for ' ~ site.domain ~ '? This walks every file and directory in the document root and can take a while on a large site.\')') }};">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="site_id" value="{{ site.id }}">
+            <input type="hidden" name="enabled" value="{{ '' if status[site.id] else 'on' }}">
+            <button type="submit" class="link-button {{ 'danger' if status[site.id] }}">
+              {{ "Disable" if status[site.id] else "Enable" }}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<script>
+function confirmDisable(form, domain) {
+  var typed = prompt('This removes tamper-proofing from ' + domain + ', allowing its files to be edited/replaced again.\n\nType the domain name to confirm:');
+  return typed === domain;
+}
+</script>
+{% endblock %}

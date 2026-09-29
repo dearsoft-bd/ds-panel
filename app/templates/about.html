@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set active_page = "about" %}
+{% block title %}About Us — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>About DearSoft</h2>
+
+  <div class="about-hero">
+    <img src="https://dearsoft.com.bd/public/images/ds-logo.png" alt="DearSoft" class="about-logo">
+    <p>
+      DearSoft is a software development brand founded in 2025, building products for people who run
+      their own servers and online businesses — including <b>DS Panel</b> (this control panel),
+      <b>DS-Pythone</b> (a full Python-built e-commerce/CMS platform), and <b>DearSoft ERP</b>.
+      DS Panel is released free and open-source: no license fees, no locked features, built as a gift
+      to server builders everywhere.
+    </p>
+  </div>
+
+  <h3 style="margin-top:32px;">Owner</h3>
+  <div class="about-owner-card">
+    <img src="{{ url_for('static', filename='images/owner.jpg') }}" alt="Khandaker Readul Islam" class="about-owner-photo">
+    <div>
+      <div class="about-owner-name">Khandaker Readul Islam</div>
+      <div class="about-owner-title">Founder, DearSoft</div>
+      <p class="muted small" style="margin-top:8px; max-width:480px;">
+        Developer and entrepreneur behind the DearSoft brand — builds and personally maintains DS Panel,
+        DS-Pythone, and every DearSoft product from the ground up.
+      </p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:32px;">Contact</h3>
+  <table class="data-table" style="max-width:520px;">
+    <tbody>
+      <tr><td class="muted">Website</td><td><a href="https://dearsoft.com.bd/" target="_blank" rel="noopener">dearsoft.com.bd</a></td></tr>
+      <tr><td class="muted">Email</td><td><a href="mailto:founder@dearsoft.com.bd">founder@dearsoft.com.bd</a></td></tr>
+    </tbody>
+  </table>
+
+  <p class="muted small" style="margin-top:24px;">DS Panel version 1.0.0 — &copy; 2026 DearSoft. Licensed under MIT.</p>
+</div>
+<style>
+  .about-hero { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+  .about-logo { width:120px; }
+  .about-hero p { flex:1; min-width:260px; line-height:1.6; }
+  .about-owner-card { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .about-owner-photo { width:96px; height:96px; border-radius:50%; object-fit:cover; border:2px solid var(--border); }
+  .about-owner-name { font-size:16px; font-weight:700; }
+  .about-owner-title { font-size:13px; color:var(--muted); }
+</style>
+{% endblock %}

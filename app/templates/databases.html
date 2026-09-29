@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% set active_page = "databases" %}
+{% block title %}Databases — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <h2>Databases</h2>
+    {% if pma_url %}
+    <a href="{{ pma_url }}" target="_blank" style="padding:8px 16px;background:linear-gradient(135deg,var(--accent),var(--accent-glow));border-radius:6px;color:#fff;text-decoration:none;font-weight:600;font-size:13px;">
+      <i class="bi bi-box-arrow-up-right"></i> Open phpMyAdmin
+    </a>
+    {% endif %}
+  </div>
+
+  {% if shown_password %}
+  <div class="flash flash-success credential-flash" style="position:static;margin-bottom:16px;">
+    {% if shown_db %}<b>{{ shown_db }}</b> credentials{% else %}User <b>{{ shown_user }}</b> credentials{% endif %}
+    (shown once, save now) — user: <code>{{ shown_user }}</code>,
+    password:
+    <span class="credential-value">
+      <code id="shown-db-password" data-value="{{ shown_password }}">••••••••••••••••</code>
+      <button type="button" class="credential-btn" onclick="toggleDbPassword()" title="Show/hide"><i class="bi bi-eye" id="db-password-eye"></i></button>
+      <button type="button" class="credential-btn" onclick="copyDbPassword()" title="Copy"><i class="bi bi-clipboard"></i></button>
+    </span>
+  </div>
+  <script>
+    function toggleDbPassword() {
+      var el = document.getElementById('shown-db-password');
+      var eye = document.getElementById('db-password-eye');
+      var hidden = el.textContent.indexOf('•') !== -1;
+      el.textContent = hidden ? el.dataset.value : '••••••••••••••••';
+      eye.className = hidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+    }
+    function copyDbPassword() {
+      var el = document.getElementById('shown-db-password');
+      navigator.clipboard.writeText(el.dataset.value);
+    }
+  </script>
+  {% endif %}
+
+  <form method="post" action="{{ base_url }}/databases/add" class="add-site-form" id="add-db-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="db_name" placeholder="database name" required>
+
+    <select name="user_mode" id="user-mode-select" onchange="toggleUserMode()">
+      <option value="new">Create User with Password</option>
+      {% if existing_users %}
+      <option value="existing">Use Existing User</option>
+      {% endif %}
+    </select>
+
+    <span id="new-user-fields">
+      <input type="text" name="db_user" placeholder="new username" required>
+      <input type="text" name="db_password" placeholder="password (optional, min 8 chars — auto-generated if blank)" autocomplete="off">
+    </span>
+
+    <span id="existing-user-fields" style="display:none;">
+      <select name="existing_user">
+        {% for u in existing_users %}
+        <option value="{{ u }}">{{ u }}</option>
+        {% endfor %}
+      </select>
+    </span>
+
+    <button type="submit">Create Database</button>
+  </form>
+  <p class="muted small">
+    Leave the password blank to auto-generate a strong one (shown once after creation).
+    Choosing an existing user grants them access to the new database using their existing password — no new password needed.
+  </p>
+  <script>
+    function toggleUserMode() {
+      var isExisting = document.getElementById('user-mode-select').value === 'existing';
+      document.getElementById('new-user-fields').style.display = isExisting ? 'none' : '';
+      document.getElementById('existing-user-fields').style.display = isExisting ? '' : 'none';
+      document.getElementById('add-db-form').querySelector('[name="db_user"]').required = !isExisting;
+    }
+  </script>
+
+  <h3 style="margin-top:32px;">MySQL Users</h3>
+  <p class="muted small">Create a user on its own, ahead of time — attach it to a database later via "Use Existing User" above.</p>
+  <form method="post" action="{{ base_url }}/databases/users/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="username" placeholder="new username" required>
+    <input type="text" name="password" placeholder="password (optional, min 8 chars — auto-generated if blank)" autocomplete="off">
+    <button type="submit">Create User</button>
+  </form>
+
+  <table class="data-table" style="margin-top:16px;">
+    <thead><tr><th>Username</th><th>Databases</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for u in standalone_users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td class="muted">{{ u.db_count }}</td>
+        <td class="muted">{{ u.created_at }}</td>
+        <td class="row-actions db-actions">
+          <form method="post" action="{{ base_url }}/databases/users/{{ u.username }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete user {{ u.username }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger db-btn-delete">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No standalone users yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:32px;">Databases</h3>
+  <table class="data-table">
+    <thead><tr><th>Database</th><th>User</th><th>Auto Backup</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for d in databases %}
+      <tr>
+        <td>{{ d.db_name }}</td>
+        <td class="muted">{{ d.db_user }}</td>
+        <td class="muted">
+          {% if d.auto_backup_enabled %}On (keep {{ d.backup_retention }}){% else %}Off{% endif %}
+        </td>
+        <td class="muted">{{ d.created_at }}</td>
+        <td class="row-actions db-actions">
+          <button type="button" class="link-button db-btn-edit" onclick="openEditDb({{ d.id }}, '{{ d.db_name }}', '{{ d.db_user }}')">Edit</button>
+          <a href="{{ base_url }}/databases/{{ d.id }}/backup" class="db-btn-backup">Backup</a>
+          <form method="post" action="{{ base_url }}/databases/{{ d.id }}/auto-backup" style="display:inline" class="auto-backup-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="enabled" class="auto-backup-enabled-field" value="{{ 'on' if d.auto_backup_enabled else '' }}">
+            <input type="hidden" name="retention" class="auto-backup-retention-field" value="{{ d.backup_retention }}">
+            <button type="submit" class="link-button db-btn-autobackup{{ ' db-btn-autobackup-off' if d.auto_backup_enabled }}" onclick="return dsToggleAutoBackup(this, {{ 'true' if d.auto_backup_enabled else 'false' }}, {{ d.backup_retention }}, '{{ d.db_name }}');">
+              {{ "Disable" if d.auto_backup_enabled else "Enable" }} Auto Backup
+            </button>
+          </form>
+          <form method="post" action="{{ base_url }}/databases/{{ d.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Drop database {{ d.db_name }}? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button danger db-btn-delete">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No databases yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="edit-db-panel" class="file-settings-panel" style="display:none; margin-top: 20px;">
+  <form method="post" id="edit-db-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p><b>Edit database:</b> <span id="edit-db-name"></span></p>
+
+    <label class="checkbox-label" style="margin-bottom:6px;">Owning user:</label>
+    <select name="new_user" id="edit-db-user">
+      {% for u in existing_users %}
+      <option value="{{ u }}">{{ u }}</option>
+      {% endfor %}
+    </select>
+
+    <div style="margin-top:12px;">
+      <label class="checkbox-label" style="margin-bottom:6px;">New password (leave blank to keep unchanged):</label>
+      <input type="text" name="new_password" placeholder="new password, min 8 chars" autocomplete="off">
+    </div>
+    <p class="muted small" style="margin-top:8px;">
+      Note: a user's password is shared across every database they own —
+      changing it here changes it everywhere that user is used, not just this database.
+    </p>
+
+    <button type="submit" style="margin-top:12px;">Save Changes</button>
+    <button type="button" class="link-button" onclick="document.getElementById('edit-db-panel').style.display='none';" style="width:auto;margin-left:10px;">Cancel</button>
+  </form>
+</div>
+
+<script>
+function openEditDb(id, dbName, currentUser) {
+  var panel = document.getElementById('edit-db-panel');
+  document.getElementById('edit-db-name').textContent = dbName;
+  document.getElementById('edit-db-user').value = currentUser;
+  document.getElementById('edit-db-form').action = '{{ base_url }}/databases/' + id + '/edit';
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function dsToggleAutoBackup(button, currentlyEnabled, currentRetention, name) {
+  const form = button.closest('form');
+  if (currentlyEnabled) {
+    if (!confirm('Disable Auto Backup for ' + name + '?')) return false;
+    form.querySelector('.auto-backup-enabled-field').value = '';
+    return true;
+  }
+  const retention = prompt('Keep how many backups for ' + name + '? (1-90)', currentRetention || 7);
+  if (!retention) return false;
+  form.querySelector('.auto-backup-enabled-field').value = 'on';
+  form.querySelector('.auto-backup-retention-field').value = retention;
+  return true;
+}
+</script>
+{% endblock %}

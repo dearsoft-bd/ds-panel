@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% set active_page = "sites" %}
+{% block title %}Sites — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Sites</h2>
+
+  {% if site_restricted %}
+  <p class="muted small">Your account is restricted to the site(s) below only — creating new sites is a Super Admin action.</p>
+  {% else %}
+  <form method="post" action="{{ base_url }}/sites/add" class="add-site-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="domain" placeholder="example.com" required>
+    <input type="email" name="admin_email" placeholder="admin@example.com (for SSL)">
+    <select name="site_type" id="site-type-select" onchange="dsToggleSiteType()">
+      {% for t in site_types %}
+      <option value="{{ t }}">{{ "Node.js" if t == "node" else "PHP" }}</option>
+      {% endfor %}
+    </select>
+    <select name="php_version" id="php-version-select">
+      {% for v in php_versions %}
+      <option value="{{ v }}" {{ "selected" if v == default_php_version }}>PHP {{ v }}{{ " (default)" if v == default_php_version }}</option>
+      {% endfor %}
+    </select>
+    <label class="checkbox-label"><input type="checkbox" name="ssl"> Issue SSL (Let's Encrypt)</label>
+    <button type="submit">Add Site</button>
+  </form>
+  <p class="muted small">
+    Document root: every site is created under <code>{{ sites_root }}/&lt;domain&gt;/</code>
+    on the server (e.g. adding <code>example.com</code> creates <code>{{ sites_root }}/example.com/</code>) —
+    that's the folder you'll see when browsing this site in <a href="{{ base_url }}/files">Files</a>.
+  </p>
+  <p class="muted small">
+    SSL issuance requires the domain's DNS to already point at this
+    server's IP address before you click Add Site. Node.js sites get a
+    minimal starter <code>server.js</code> and are run/kept alive via pm2.
+  </p>
+  {% endif %}
+  <script>
+    function dsToggleSiteType() {
+      const isNode = document.getElementById('site-type-select').value === 'node';
+      document.getElementById('php-version-select').style.display = isNode ? 'none' : '';
+    }
+  </script>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Domain</th><th>Document root</th><th>Type</th><th>SSL</th><th>Auto Backup</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for site in sites %}
+      <tr>
+        <td>{{ site.domain }}</td>
+        <td class="muted">{{ site.document_root }}</td>
+        <td class="muted">
+          {% if site.site_type == "node" %}
+            Node.js (port {{ site.node_port }})
+          {% else %}
+            PHP {{ site.php_version }}
+          {% endif %}
+        </td>
+        <td>{{ "Yes" if site.ssl_enabled else "No" }}</td>
+        <td class="muted">
+          {% if site.auto_backup_enabled %}On (keep {{ site.backup_retention }}){% else %}Off{% endif %}
+        </td>
+        <td class="muted">{{ site.created_at }}</td>
+        <td class="row-actions site-actions">
+          <a href="{{ base_url }}/sites/{{ site.id }}/backup" class="db-btn-backup">Backup</a>
+          <form method="post" action="{{ base_url }}/sites/{{ site.id }}/auto-backup" style="display:inline" class="auto-backup-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="enabled" class="auto-backup-enabled-field" value="{{ 'on' if site.auto_backup_enabled else '' }}">
+            <input type="hidden" name="retention" class="auto-backup-retention-field" value="{{ site.backup_retention }}">
+            <button type="submit" class="link-button db-btn-autobackup{{ ' db-btn-autobackup-off' if site.auto_backup_enabled }}" onclick="return dsToggleAutoBackup(this, {{ 'true' if site.auto_backup_enabled else 'false' }}, {{ site.backup_retention }}, '{{ site.domain }}');">
+              {{ "Disable" if site.auto_backup_enabled else "Enable" }} Auto Backup
+            </button>
+          </form>
+          {% if not site.ssl_enabled %}
+          <form method="post" action="{{ base_url }}/sites/{{ site.id }}/enable-ssl" style="display:inline"
+                onsubmit="return dsSubmitSsl(this, '{{ site.domain }}');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="admin_email" class="ssl-email-field">
+            <button type="submit" class="link-button db-btn-ssl">Enable SSL</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{{ base_url }}/sites/{{ site.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Remove {{ site.domain }}? Files are kept, only the nginx site is removed.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button db-btn-delete">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">No sites yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script>
+  function dsSubmitSsl(form, domain) {
+    const email = prompt('Admin email for the Let\'s Encrypt certificate on ' + domain + ':');
+    if (!email) return false;
+    form.querySelector('.ssl-email-field').value = email;
+    return true;
+  }
+  function dsToggleAutoBackup(button, currentlyEnabled, currentRetention, domain) {
+    const form = button.closest('form');
+    if (currentlyEnabled) {
+      if (!confirm('Disable Auto Backup for ' + domain + '?')) return false;
+      form.querySelector('.auto-backup-enabled-field').value = '';
+      return true;
+    }
+    const retention = prompt('Keep how many backups for ' + domain + '? (1-90)', currentRetention || 7);
+    if (!retention) return false;
+    form.querySelector('.auto-backup-enabled-field').value = 'on';
+    form.querySelector('.auto-backup-retention-field').value = retention;
+    return true;
+  }
+</script>
+{% endblock %}

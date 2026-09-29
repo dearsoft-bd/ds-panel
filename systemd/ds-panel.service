@@ -1,0 +1,39 @@
+[Unit]
+Description=DS Panel
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ds-panel
+Environment=DS_PANEL_CONFIG=/etc/ds-panel/config.json
+ExecStart=/opt/ds-panel/venv/bin/gunicorn \
+    --certfile /etc/ds-panel/ssl/panel.crt \
+    --keyfile /etc/ds-panel/ssl/panel.key \
+    --bind 0.0.0.0:__PANEL_PORT__ \
+    --worker-class gthread --workers 2 --threads 8 \
+    --timeout 3600 \
+    run:app
+Restart=on-failure
+RestartSec=3
+
+# Must NOT be the default "control-group": the panel spawns pm2 (via
+# system_ops.start_node_app) as a child process, and pm2 in turn keeps
+# every hosted Node.js site alive as ITS OWN children. The default
+# KillMode kills the whole cgroup on stop/restart, which would take down
+# every Node site on the server any time the panel service itself
+# restarts (e.g. during a routine `install.sh` re-run). "process" only
+# signals the main gunicorn process, leaving pm2 and its managed apps
+# running independently, matching how pm2 is meant to be used (a
+# long-lived daemon, not tied to any one caller's lifetime).
+KillMode=process
+
+# Runs as root deliberately: privileged operations (nginx config, certbot,
+# vsftpd, ufw, crontab for arbitrary system users) are the entire point of
+# this service. Every one of those operations must go through the
+# allow-listed subprocess helpers described in the project plan — never
+# raw shell interpolation of request input — precisely because this runs
+# as root. Revisit if/when privilege-separated helper processes are added.
+User=root
+
+[Install]
+WantedBy=multi-user.target
