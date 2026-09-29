@@ -102,7 +102,10 @@ def create_app(config_path: Path | None = None) -> Flask:
     # Cron, App Store, Logs, Settings, Domains, ...) is completely
     # unreachable — not read-only, gone — matching "only their site + files,
     # nothing else".
-    SITE_RESTRICTED_BLUEPRINTS = {"dashboard", "files", "sites", "monitor", "about", "auth"}
+    # "static" must be allowed too — it's Flask's own CSS/JS/image blueprint,
+    # not a real feature area, and without it every static asset request gets
+    # redirected away for this role, breaking the entire page's styling.
+    SITE_RESTRICTED_BLUEPRINTS = {"dashboard", "files", "sites", "monitor", "about", "auth", "static"}
     SITE_RESTRICTED_FEATURES = {"sites", "files"}
 
     @app.before_request
