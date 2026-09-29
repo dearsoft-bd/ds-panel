@@ -108,7 +108,7 @@
             <i class="bi bi-person-circle"></i>
             <div>
               <div class="topbar-avatar-name">{{ username or "admin" }}</div>
-              <div class="topbar-avatar-role">{{ (session.get('role') or 'admin')|replace('_', ' ')|capitalize }}{{ " (restricted)" if site_restricted }}</div>
+              <div class="topbar-avatar-role">{{ (session.get('role') or 'admin')|replace('_', ' ')|capitalize }}</div>
             </div>
           </div>
         </div>
