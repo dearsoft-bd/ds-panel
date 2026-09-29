@@ -2,50 +2,342 @@
 {% set active_page = "about" %}
 {% block title %}About Us — DS Panel{% endblock %}
 {% block content %}
-<div class="page">
-  <h2>About DearSoft</h2>
+<div class="fp-page">
 
-  <div class="about-hero">
-    <img src="{{ url_for('static', filename='images/ds-logo.png') }}" alt="DearSoft" class="about-logo">
-    <p>
-      DearSoft is a software development brand founded in 2025, building products for people who run
-      their own servers and online businesses — including <b>DS Panel</b> (this control panel),
-      <b>DS-Pythone</b> (a full Python-built e-commerce/CMS platform), and <b>DearSoft ERP</b>.
-      DS Panel is released free and open-source: no license fees, no locked features, built as a gift
-      to server builders everywhere.
-    </p>
-  </div>
-
-  <h3 style="margin-top:32px;">Owner</h3>
-  <div class="about-owner-card">
-    <img src="{{ url_for('static', filename='images/owner.jpg') }}" alt="Khandaker Readul Islam" class="about-owner-photo">
-    <div>
-      <div class="about-owner-name">Khandaker Readul Islam</div>
-      <div class="about-owner-title">Founder, DearSoft</div>
-      <p class="muted small" style="margin-top:8px; max-width:480px;">
-        Developer and entrepreneur behind the DearSoft brand — builds and personally maintains DS Panel,
-        DS-Pythone, and every DearSoft product from the ground up.
-      </p>
+  <!-- HERO -->
+  <section class="fp-hero">
+    <div class="fp-hero-inner">
+      <div class="fp-hero-text">
+        <span class="fp-badge"><i class="bi bi-award"></i> FOUNDER &amp; OWNER</span>
+        <h1 class="fp-name">Mr. Khandaker<br>Readul Islam</h1>
+        <p class="fp-tagline">Owner of DearSoft &middot; Developer of DearSoft, Dear IT Solution &amp; DearGroup &middot; Creator of DS-Pythone</p>
+        <p class="fp-bio">
+          Mr. Khandaker Readul Islam is the owner of <b>DearSoft</b> and the developer behind
+          <b>DearSoft</b>, <b>Dear IT Solution</b> and <b>DearGroup</b>. He is the creator of
+          <b>DS-Pythone</b> — a pure-Python e-commerce platform and CMS built so that businesses can
+          leave PHP behind — and he leads DearSoft's software development, hosting and ERP work for
+          businesses across Bangladesh.
+        </p>
+        <div class="fp-cta-row">
+          <a href="https://dearsoft.com.bd/products/ds-pythone" target="_blank" rel="noopener" class="fp-btn fp-btn-gold"><i class="bi bi-lightning-charge-fill"></i> Explore DS-Pythone</a>
+          <a href="https://dearsoft.com.bd/ai" target="_blank" rel="noopener" class="fp-btn fp-btn-blue"><i class="bi bi-stars"></i> DS-Pythone AI</a>
+          <a href="https://dearsoft.com.bd/founder" target="_blank" rel="noopener" class="fp-btn fp-btn-outline"><i class="bi bi-play-circle"></i> See the Live Demo</a>
+          <a href="https://wa.me/8801970004005" target="_blank" rel="noopener" class="fp-btn fp-btn-outline"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+        </div>
+      </div>
+      <div class="fp-hero-photo-wrap">
+        <div class="fp-hero-photo">
+          <img src="{{ url_for('static', filename='images/owner.jpg') }}" alt="Khandaker Readul Islam">
+        </div>
+        <span class="fp-dbid-pill"><i class="bi bi-patch-check-fill"></i> DBID Registered</span>
+      </div>
     </div>
-  </div>
 
-  <h3 style="margin-top:32px;">Contact</h3>
-  <table class="data-table" style="max-width:520px;">
-    <tbody>
-      <tr><td class="muted">Website</td><td><a href="https://dearsoft.com.bd/" target="_blank" rel="noopener">dearsoft.com.bd</a></td></tr>
-      <tr><td class="muted">Email</td><td><a href="mailto:founder@dearsoft.com.bd">founder@dearsoft.com.bd</a></td></tr>
-    </tbody>
-  </table>
+    <div class="fp-member-row">
+      <div class="fp-member-card">
+        <span class="fp-member-icon fp-icon-gold"><i class="bi bi-code-slash"></i></span>
+        <div><div class="muted small">Google Developers Group</div><b>GDG Community Member</b></div>
+      </div>
+      <div class="fp-member-card">
+        <span class="fp-member-icon fp-icon-blue"><i class="bi bi-briefcase-fill"></i></span>
+        <div><div class="muted small">Bangladesh Computer Samity (BCS)</div><b>Member ID: 1542</b></div>
+      </div>
+      <div class="fp-member-card">
+        <span class="fp-member-icon fp-icon-green"><i class="bi bi-shield-check"></i></span>
+        <div><div class="muted small">E-Commerce Association of Bangladesh (e-CAB)</div><b>Member ID: 1963</b></div>
+      </div>
+    </div>
 
-  <p class="muted small" style="margin-top:24px;">DS Panel version 1.0.0 — &copy; 2026 DearSoft. Licensed under MIT.</p>
+    <div class="fp-dbid-bar">
+      <div>
+        <div class="muted small">Government of the People's Republic of Bangladesh &middot; Ministry of Commerce</div>
+        <div class="muted small">Office of the Registrar of Joint Stock Companies and Firms</div>
+        <div class="fp-dbid-cert"><i class="bi bi-patch-check-fill"></i> Certificate of Digital Business Identity (DBID)</div>
+      </div>
+      <div class="fp-dbid-no">
+        <div class="fp-dbid-label">DBID NO.</div>
+        <div class="fp-dbid-num">688658381</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE COMPANY -->
+  <section class="fp-section">
+    <div class="fp-section-grid">
+      <div>
+        <span class="fp-eyebrow">THE COMPANY</span>
+        <h2>Software that real businesses run on</h2>
+        <p class="fp-lead">DearSoft builds and maintains commerce and ERP software for businesses in Bangladesh — under the DearSoft, Dear IT Solution and DearGroup names. Every product below is live in production today.</p>
+      </div>
+      <div class="fp-card-grid">
+        <div class="fp-card"><span class="fp-card-icon fp-icon-gold"><i class="bi bi-lightning-charge-fill"></i></span><h4>DS-Pythone</h4><p>Our Python-native storefront and CMS with a visual Studio builder and its own built-in AI. Running on live production stores.</p></div>
+        <div class="fp-card"><span class="fp-card-icon fp-icon-blue"><i class="bi bi-diagram-3-fill"></i></span><h4>DearSoft ERP</h4><p>Inventory, accounting and operations with an AI assistant. Anything that writes data waits for explicit human approval first — read-only questions answer instantly.</p></div>
+        <div class="fp-card"><span class="fp-card-icon fp-icon-green"><i class="bi bi-hdd-network-fill"></i></span><h4>Hosting &amp; DS-Panel</h4><p>High-speed cloud hosting and server management, with DS-Panel to run sites without the hassle.</p></div>
+        <div class="fp-card"><span class="fp-card-icon fp-icon-purple"><i class="bi bi-key-fill"></i></span><h4>Licensing &amp; Security</h4><p>A central license server that checks each installation's license key and plan, so a DearSoft product knows which features an installation may use.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BIG IDEA -->
+  <section class="fp-section fp-section-alt">
+    <span class="fp-eyebrow">THE BIG IDEA &middot; CREATED BY KHANDAKER READUL ISLAM</span>
+    <h2>The PHP era is fading.<br>Welcome to DS-Pythone.</h2>
+    <p class="fp-lead" style="max-width:760px;">More and more businesses and developers want to leave PHP behind and build on Python — the language of AI, automation and data. DS-Pythone is the storefront and CMS built for exactly that move: a complete e-commerce platform written in Python, with its own builder AI, image tools and a visual Studio — no PHP anywhere in the engine.</p>
+
+    <div class="fp-vs-strip">
+      <span class="fp-vs-old">PHP CMS</span>
+      <i class="bi bi-arrow-right"></i>
+      <span class="fp-vs-new">DS-Pythone &middot; 100% Python</span>
+    </div>
+
+    <div class="fp-card-grid fp-card-grid-4">
+      <div class="fp-card"><span class="fp-tag">NO PHP REQUIRED</span><h4>Pure-Python engine</h4><p>Storefront, admin and API all in one language. Fewer moving parts, a huge Python talent pool, and a codebase that is ready for AI and automation.</p></div>
+      <div class="fp-card"><span class="fp-tag">SEE ALL AI TOOLS</span><h4>DS-Pythone AI — our own builder AI</h4><p>Write product descriptions and SEO, bulk-update the whole catalog, draft blog posts, and answer shoppers with a built-in chat assistant — all from inside your CMS.</p></div>
+      <div class="fp-card"><span class="fp-tag">FREE &amp; BUILT-IN</span><h4>Background remover — works without AI</h4><p>Remove product-photo backgrounds with a free built-in engine — no AI key needed — with optional AI providers and automatic failover so it never gets stuck.</p></div>
+      <div class="fp-card"><span class="fp-tag">CREATE &middot; BRAND &middot; IMPORT</span><h4>Image generation</h4><p>Generate images right inside your CMS, then brand them with logo, watermark and frame tools and import photos straight from a link.</p></div>
+      <div class="fp-card"><span class="fp-tag">VISUAL BUILDER</span><h4>DS-Pythone Studio</h4><p>A visual builder for headers, menus, sliders, product pages and more — edit your store live, without touching code.</p></div>
+      <div class="fp-card"><span class="fp-tag">MADE FOR LOCAL COMMERCE</span><h4>Bangladesh-ready</h4><p>Pathao Courier built in: live delivery cost at checkout and one-click sending from the admin — plus WhatsApp and MCP/API tools for your AI workflows.</p></div>
+      <div class="fp-card"><span class="fp-tag">QUICK CHECKOUT &middot; OTP &middot; SOCIAL LOGIN</span><h4>Verified customer accounts</h4><p>Let shoppers order with just a phone number, email and address — or create an account and confirm it by email, WhatsApp or SMS. Google and Facebook sign-in included.</p></div>
+      <div class="fp-card"><span class="fp-tag">HISTORY &middot; PAYMENTS &middot; PATHAO STATUS</span><h4>Order tracking for customers</h4><p>A My Account area with a date-wise order and payment history, plus the live Pathao delivery status of every parcel.</p></div>
+    </div>
+
+    <div class="fp-stats-row">
+      <div class="fp-stat"><div class="fp-stat-num">0</div><div class="muted small">lines of PHP in the engine</div></div>
+      <div class="fp-stat"><div class="fp-stat-num">7</div><div class="muted small">live production stores</div></div>
+      <div class="fp-stat"><div class="fp-stat-num">2,357</div><div class="muted small">products migrated intact in one live catalog</div></div>
+      <div class="fp-stat"><div class="fp-stat-num">&lt;1s</div><div class="muted small">storefront page render (from 5–7s)</div></div>
+    </div>
+
+    <div class="fp-cta-row">
+      <a href="https://dearsoft.com.bd/products/ds-pythone" target="_blank" rel="noopener" class="fp-btn fp-btn-gold">See DS-Pythone Live</a>
+      <a href="https://dearsoft.com.bd/contact" target="_blank" rel="noopener" class="fp-btn fp-btn-outline">Move my store to DS-Pythone</a>
+      <a href="https://dearsoft.com.bd/pricing" target="_blank" rel="noopener" class="fp-btn fp-btn-outline">Editions &amp; pricing</a>
+    </div>
+  </section>
+
+  <!-- DS-PYTHONE AI -->
+  <section class="fp-section">
+    <span class="fp-eyebrow">DS-PYTHONE AI &middot; ALL AI WORKS</span>
+    <h2>Our own builder AI, built into your CMS</h2>
+    <p class="fp-lead" style="max-width:760px;">DS-Pythone AI is developed in-house by DearSoft and lives inside your admin panel — not in a separate tool. It writes your content, edits your whole catalog in bulk, answers your customers, removes photo backgrounds and connects your store to other AI agents.</p>
+
+    <div class="fp-steps-row">
+      <div class="fp-step"><span class="fp-step-num">1</span><h4>Connect</h4><p>Add your AI key (OpenAI-compatible or Anthropic) — or use the free built-in tools.</p></div>
+      <div class="fp-step"><span class="fp-step-num">2</span><h4>Choose a tool</h4><p>Every AI tool sits where you already work: product, category, blog and image screens.</p></div>
+      <div class="fp-step"><span class="fp-step-num">3</span><h4>Review &amp; publish</h4><p>Simulation mode and "empty fields only" are on by default, so nothing is overwritten by surprise.</p></div>
+    </div>
+
+    <div class="fp-card-grid fp-card-grid-3">
+      <div class="fp-card"><h4>AI Write Assistant</h4><p>Generate product descriptions, meta titles/descriptions, tags and SEO headings straight from the product editor, in your brand's style.</p><span class="fp-tag">PRODUCTS &middot; SEO</span></div>
+      <div class="fp-card"><h4>Key Features &amp; Specs Writer</h4><p>Turn a product name and details into clean key-feature lists and specification tables that shoppers can scan in seconds.</p><span class="fp-tag">SPECS &middot; ATTRIBUTES</span></div>
+      <div class="fp-card"><h4>AI Mass Update</h4><p>Fill or refresh SEO and content for your whole catalog with style patterns and a safe simulation mode. Hundreds of products, not hours of typing.</p><span class="fp-tag">BULK &middot; CATALOG-WIDE</span></div>
+      <div class="fp-card"><h4>AI Blog Writer</h4><p>Draft blog posts with title, description, tags and meta data, then save to a new or existing post — ready for search engines.</p><span class="fp-tag">CONTENT &middot; BLOG</span></div>
+      <div class="fp-card"><h4>Storefront AI Chat Assistant</h4><p>A shopping assistant on your site that searches your live catalog, shows product cards, and answers with your business info, FAQs and services.</p><span class="fp-tag">SALES &middot; SUPPORT</span></div>
+      <div class="fp-card"><h4>WhatsApp AI Bot</h4><p>The same assistant on WhatsApp, so customers can ask about products and get answers where they already chat.</p><span class="fp-tag">WHATSAPP</span></div>
+      <div class="fp-card"><h4>MCP &amp; AI-Agent API</h4><p>Let ChatGPT-style assistants and custom AI agents search and read your catalog through a secure API with keys and rate limits.</p><span class="fp-tag">MCP &middot; API</span></div>
+      <div class="fp-card"><h4>Background Remover</h4><p>Clean product photos in one click. Works without any AI key using a free built-in engine, with automatic failover. Bulk apply included.</p><span class="fp-tag">FREE &middot; AUTO-FAILOVER</span></div>
+      <div class="fp-card"><h4>Image Generation &amp; Branding</h4><p>Generate images inside your CMS, then apply your logo, watermark and frame across the catalog in bulk.</p><span class="fp-tag">CREATE &middot; BRAND &middot; BULK</span></div>
+    </div>
+  </section>
+
+  <!-- SEO TOOLKIT -->
+  <section class="fp-section fp-section-alt">
+    <span class="fp-eyebrow">DS-PYTHONE SEO TOOLKIT</span>
+    <h2>Rank higher. Lose fewer visitors.</h2>
+    <p class="fp-lead">Our latest tools focus on the two things that decide organic traffic: great on-page SEO and no broken links.</p>
+
+    <div class="fp-card-grid fp-card-grid-3">
+      <div class="fp-card"><h4>SEO Auto-Fill</h4><p>Scans products, categories and information pages for missing meta titles and descriptions and fills only the blanks.</p></div>
+      <div class="fp-card"><h4>Redirect Manager</h4><p>301 redirects for moved pages, static or dynamic. Every redirect counts its hits.</p></div>
+      <div class="fp-card"><h4>404 Manager</h4><p>Records every broken URL visitors actually hit, then turn any of them into a redirect in one click.</p></div>
+      <div class="fp-card"><h4>Auto Categories &amp; Related Products</h4><p>AI places a product in your existing category tree and picks related products from your real catalog.</p></div>
+      <div class="fp-card"><h4>Detect Manufacturer / Brand</h4><p>AI recognises the brand from a product name and links it to the right manufacturer.</p></div>
+      <div class="fp-card"><h4>Meta, Tags &amp; Headings Generator</h4><p>Meta title, description, keywords, tags and H1–H3 headings generated with your own style patterns.</p></div>
+    </div>
+
+    <div class="fp-safe-box">
+      <h4><i class="bi bi-shield-check"></i> Safe by design</h4>
+      <ul>
+        <li>Simulation mode and "update empty values only" on by default</li>
+        <li>Multiple AI providers with automatic failover</li>
+        <li>API keys and per-visitor rate limits on public AI endpoints</li>
+        <li>In our ERP assistant, anything that writes data waits for your approval</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- DEARSOFT ERP -->
+  <section class="fp-section">
+    <span class="fp-eyebrow">DEARSOFT ERP</span>
+    <h2>One ERP for your whole business — unlimited, protected and made your way</h2>
+    <p class="fp-lead" style="max-width:760px;">DearSoft ERP brings inventory, sales, purchasing, accounting, HR and warranty into one system, built by the same team and founder behind DS-Pythone. Every business gets its own separate, private workspace.</p>
+
+    <div class="fp-card-grid fp-card-grid-3">
+      <div class="fp-card">
+        <h4>Unlimited edition</h4>
+        <p>Every module switched on, with product, team-member and warehouse limits set around your business instead of a fixed plan.</p>
+        <ul class="fp-check-list">
+          <li>All ERP modules included</li>
+          <li>Unlimited products &amp; stock records</li>
+          <li>Team members and warehouses sized to you</li>
+          <li>Priority support from the builders</li>
+        </ul>
+      </div>
+      <div class="fp-card">
+        <h4>Backup &amp; Restore</h4>
+        <p>Download a complete backup of your business data in one click, and restore it whenever you need.</p>
+        <ul class="fp-check-list">
+          <li>One-click backup to a single ZIP file</li>
+          <li>Products, customers &amp; suppliers, sales &amp; purchases</li>
+          <li>Payments, stock, employees, warranties, expenses &amp; ledger</li>
+          <li>Restore in the right order, links stay intact</li>
+        </ul>
+      </div>
+      <div class="fp-card">
+        <h4>Customise all features</h4>
+        <p>Your business is not a template. DearSoft tailors any module, workflow, report and document to how you actually work.</p>
+        <ul class="fp-check-list">
+          <li>Custom workflows and approval steps</li>
+          <li>Invoices, reports and documents in your style</li>
+          <li>New modules and integrations on request</li>
+          <li>Change it as your business grows</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="margin-top:40px;">Everything inside — all the modules your business needs</h3>
+    <div class="fp-card-grid fp-card-grid-3">
+      <div class="fp-card fp-card-sm"><h4>Smart Inventory</h4><p>Real-time stock, serial numbers, batches, multi-warehouse control and low-stock alerts.</p></div>
+      <div class="fp-card fp-card-sm"><h4>Sales &amp; Invoicing</h4><p>Professional invoices, walk-in customers, payment tracking and pre-orders.</p></div>
+      <div class="fp-card fp-card-sm"><h4>Purchase Management</h4><p>Suppliers, purchase orders, returns and an approval workflow.</p></div>
+      <div class="fp-card fp-card-sm"><h4>Full Accounting</h4><p>Chart of accounts, journal entries, trial balance, profit &amp; loss and balance sheet.</p></div>
+      <div class="fp-card fp-card-sm"><h4>HR &amp; Payroll</h4><p>Employees, departments, salary generation and payslips.</p></div>
+      <div class="fp-card fp-card-sm"><h4>Warranty &amp; Service</h4><p>Automatic warranty cards, claim tracking and service-job management.</p></div>
+      <div class="fp-card fp-card-sm"><h4>Quotations &amp; Returns</h4><p>Send quotations, then handle sale and purchase returns with stock kept in step.</p></div>
+      <div class="fp-card fp-card-sm"><h4>Expenses &amp; Payment Follow-ups</h4><p>Track shop expenses and chase outstanding payments with follow-up reminders.</p></div>
+      <div class="fp-card fp-card-sm"><h4>AI Business Assistant</h4><p>Ask about stock and sales in plain language. Anything that changes data waits for your approval.</p></div>
+    </div>
+
+    <div class="fp-cta-row">
+      <a href="https://dearsoft.com.bd/erp" target="_blank" rel="noopener" class="fp-btn fp-btn-gold">Start the free trial</a>
+      <a href="https://dearsoft.com.bd/erp" target="_blank" rel="noopener" class="fp-btn fp-btn-outline">See ERP details &amp; plans</a>
+    </div>
+  </section>
+
+  <!-- HOW WE WORK -->
+  <section class="fp-section fp-section-alt">
+    <span class="fp-eyebrow">HOW WE WORK</span>
+    <h2>Careful engineering, no shortcuts</h2>
+    <p class="fp-lead">Live customer stores are treated like production systems, because they are. Under Mr. Khandaker Readul Islam, every change follows the same discipline.</p>
+    <div class="fp-steps-row fp-steps-row-4">
+      <div class="fp-step"><span class="fp-step-num">1</span><h4>Backup first</h4><p>A backup and a rollback plan before every edit — nothing ships without a way back.</p></div>
+      <div class="fp-step"><span class="fp-step-num">2</span><h4>Small, verified steps</h4><p>Changes are tested locally, then deployed and checked live, one site at a time.</p></div>
+      <div class="fp-step"><span class="fp-step-num">3</span><h4>Root causes, not patches</h4><p>Problems are traced to the real cause and fixed properly, then confirmed with before/after checks.</p></div>
+      <div class="fp-step"><span class="fp-step-num">4</span><h4>Human in the loop</h4><p>AI assists, people decide: anything that writes data waits for explicit approval.</p></div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="fp-section fp-final-cta">
+    <h2>Ready to leave PHP behind?</h2>
+    <p class="fp-lead">Talk to DearSoft about moving your store to DS-Pythone, building custom software, or setting up ERP and hosting. Message us directly — you'll be talking to the team that built it.</p>
+    <div class="fp-contact-row">
+      <a href="tel:+8801970004005"><i class="bi bi-telephone-fill"></i> +880 1970 004005</a>
+      <a href="mailto:support@dearsoft.com.bd"><i class="bi bi-envelope-fill"></i> support@dearsoft.com.bd</a>
+    </div>
+    <p class="muted small" style="margin-top:24px;">DS Panel version 1.0.0 &copy; 2026 DearSoft. Licensed under MIT. &middot; <a href="https://dearsoft.com.bd/" target="_blank" rel="noopener">dearsoft.com.bd</a></p>
+  </section>
+
 </div>
+
 <style>
-  .about-hero { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
-  .about-logo { width:120px; }
-  .about-hero p { flex:1; min-width:260px; line-height:1.6; }
-  .about-owner-card { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
-  .about-owner-photo { width:96px; height:96px; border-radius:50%; object-fit:cover; border:2px solid var(--border); }
-  .about-owner-name { font-size:16px; font-weight:700; }
-  .about-owner-title { font-size:13px; color:var(--muted); }
+.fp-page { color: var(--text, #1e293b); }
+.fp-hero {
+  background: linear-gradient(135deg, #0f1b3d 0%, #1c2555 55%, #3b2a63 100%);
+  border-radius: 16px; padding: 40px; margin-bottom: 28px; color: #fff;
+}
+.fp-hero-inner { display:flex; align-items:flex-start; gap:40px; flex-wrap:wrap; }
+.fp-hero-text { flex: 1; min-width: 280px; }
+.fp-badge {
+  display:inline-flex; align-items:center; gap:6px; background: rgba(250,204,21,0.15);
+  border: 1px solid rgba(250,204,21,0.4); color:#facc15; font-size:11px; font-weight:700;
+  letter-spacing:1px; padding:5px 12px; border-radius:999px; margin-bottom:16px;
+}
+.fp-name { font-size:34px; font-weight:800; line-height:1.15; margin:0 0 12px; color:#fff; }
+.fp-tagline { color:#93c5fd; font-size:14px; margin-bottom:16px; }
+.fp-bio { color: rgba(255,255,255,0.75); line-height:1.7; max-width:600px; margin-bottom:24px; }
+.fp-cta-row { display:flex; flex-wrap:wrap; gap:10px; }
+.fp-btn { display:inline-flex; align-items:center; gap:8px; padding:11px 18px; border-radius:10px; font-size:13px; font-weight:700; text-decoration:none; transition: transform .15s; }
+.fp-btn:hover { transform: translateY(-2px); }
+.fp-btn-gold { background: linear-gradient(135deg,#f97316,#facc15); color:#1a1206; }
+.fp-btn-blue { background: linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; }
+.fp-btn-outline { background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.25); color:#fff; }
+.fp-hero-photo-wrap { position:relative; flex-shrink:0; margin-left:auto; }
+.fp-hero-photo { width:180px; height:220px; border-radius:16px; padding:3px; background: linear-gradient(135deg,#f97316,#a855f7,#facc15); }
+.fp-hero-photo img { width:100%; height:100%; object-fit:cover; border-radius:13px; display:block; background:#fff; }
+.fp-dbid-pill { position:absolute; bottom:-14px; right:10px; background:#fff; color:#166534; font-size:11px; font-weight:700; padding:6px 12px; border-radius:999px; box-shadow:0 4px 12px rgba(0,0,0,0.3); white-space:nowrap; }
+.fp-member-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:44px; }
+.fp-member-card { flex:1; min-width:220px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+.fp-member-card b { color:#fff; font-size:13px; }
+.fp-member-icon { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.fp-icon-gold { background:rgba(250,204,21,0.18); color:#facc15; }
+.fp-icon-blue { background:rgba(59,130,246,0.18); color:#60a5fa; }
+.fp-icon-green { background:rgba(34,197,94,0.18); color:#4ade80; }
+.fp-icon-purple { background:rgba(168,85,247,0.18); color:#c084fc; }
+.fp-dbid-bar { margin-top:16px; background: rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+.fp-dbid-cert { color:#facc15; font-weight:700; font-size:13px; margin-top:4px; }
+.fp-dbid-label { color:#facc15; font-size:10px; letter-spacing:1px; text-align:right; }
+.fp-dbid-num { font-size:22px; font-weight:800; color:#fff; }
+.fp-hero .muted.small, .fp-hero .small { color: rgba(255,255,255,0.55); font-size:12px; }
+
+.fp-section { padding: 36px 4px; border-bottom: 1px solid var(--border); }
+.fp-section-alt { background: color-mix(in srgb, var(--border) 25%, transparent); border-radius:16px; padding:36px 28px; }
+.fp-section h2 { font-size:26px; font-weight:800; margin:6px 0 14px; }
+.fp-section h3 { font-size:18px; font-weight:700; }
+.fp-eyebrow { color: var(--accent); font-size:12px; font-weight:800; letter-spacing:1.5px; }
+.fp-lead { color: var(--muted); line-height:1.7; max-width:640px; }
+.fp-section-grid { display:grid; grid-template-columns: minmax(240px,1fr) 2fr; gap:32px; align-items:start; }
+.fp-card-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:16px; margin-top:20px; }
+.fp-card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.fp-card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.fp-card { background: var(--bg); border:1px solid var(--border); border-radius:12px; padding:18px; }
+.fp-card-sm p { font-size:13px; }
+.fp-card h4 { margin:8px 0 6px; font-size:15px; }
+.fp-card p { color:var(--muted); font-size:13.5px; line-height:1.6; margin:0; }
+.fp-card-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.fp-tag { display:inline-block; font-size:10px; font-weight:800; letter-spacing:0.8px; color: var(--accent); margin-top:8px; }
+.fp-vs-strip { display:flex; align-items:center; gap:16px; margin:20px 0; font-weight:700; }
+.fp-vs-old { color: var(--muted); text-decoration: line-through; }
+.fp-vs-new { color: var(--accent); }
+.fp-stats-row { display:grid; grid-template-columns: repeat(4,1fr); gap:16px; margin:28px 0; text-align:center; }
+.fp-stat { background: var(--bg); border:1px solid var(--border); border-radius:12px; padding:18px 8px; }
+.fp-stat-num { font-size:26px; font-weight:800; color: var(--accent); }
+.fp-steps-row { display:grid; grid-template-columns: repeat(3,1fr); gap:16px; margin:24px 0; }
+.fp-steps-row-4 { grid-template-columns: repeat(4,1fr); }
+.fp-step { background: var(--bg); border:1px solid var(--border); border-radius:12px; padding:18px; }
+.fp-step-num { display:inline-flex; width:28px; height:28px; align-items:center; justify-content:center; border-radius:50%; background: var(--accent); color:#fff; font-weight:800; font-size:13px; }
+.fp-step h4 { margin:10px 0 6px; font-size:14px; }
+.fp-step p { color:var(--muted); font-size:13px; margin:0; }
+.fp-safe-box { margin-top:24px; background: var(--bg); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.fp-safe-box ul { margin:10px 0 0; padding-left:20px; color:var(--muted); font-size:13.5px; line-height:1.8; }
+.fp-check-list { list-style:none; padding:0; margin:14px 0 0; }
+.fp-check-list li { font-size:13px; color:var(--muted); padding-left:22px; position:relative; margin-bottom:6px; }
+.fp-check-list li::before { content:"\2713"; position:absolute; left:0; color: var(--accent); font-weight:800; }
+.fp-final-cta { text-align:center; border-bottom:none; }
+.fp-final-cta .fp-lead { max-width:600px; margin:0 auto; }
+.fp-contact-row { display:flex; justify-content:center; gap:28px; margin-top:20px; flex-wrap:wrap; }
+.fp-contact-row a { color: var(--accent); font-weight:700; text-decoration:none; font-size:14px; }
+
+@media (max-width: 900px) {
+  .fp-section-grid { grid-template-columns: 1fr; }
+  .fp-card-grid, .fp-card-grid-3, .fp-card-grid-4 { grid-template-columns: repeat(2,1fr); }
+  .fp-steps-row, .fp-steps-row-4 { grid-template-columns: 1fr; }
+  .fp-stats-row { grid-template-columns: repeat(2,1fr); }
+  .fp-hero-photo-wrap { margin-left:0; }
+}
+@media (max-width: 560px) {
+  .fp-card-grid, .fp-card-grid-3, .fp-card-grid-4 { grid-template-columns: 1fr; }
+  .fp-name { font-size:26px; }
+}
 </style>
 {% endblock %}
