@@ -8,6 +8,13 @@ features, no per-site limits — built and released by DearSoft for anyone
 who runs their own servers and doesn't want to pay for the privilege of
 managing them.
 
+> A note from the founder: DS-Panel is free because I believe every
+> server owner should be able to run their own infrastructure without
+> paying rent for basic control-panel features. If it's useful to you,
+> that's the only thank-you I need — but a star on this repo genuinely
+> helps others find it.
+> — Khandaker Readul Islam, Founder, DearSoft
+
 **Status: V1 complete.** Every item below is built, deployed, and
 live-verified on a real server.
 
@@ -21,9 +28,15 @@ live-verified on a real server.
   `/admin`), self-signed TLS from first boot.
 - Google OAuth login (optional, single whitelisted account) — configurable
   entirely from **Settings**, no manual JSON editing required.
-- Multi-user accounts (**Account** page, admin-only): add users with name/
-  email/username/password, role = `admin` (full access) or `viewer`
-  (read-only — enforced globally, not per-route).
+- Multi-user accounts (**Account** page, Super-Admin-only): add users with
+  name/email/username/password, four roles — `super_admin` (full access,
+  including user management; there's always exactly one at minimum),
+  `admin` (full access except user management, unless a Super Admin
+  restricts it to specific sites — then it's locked to just those sites'
+  Website + File Manager pages), `viewer` (read-only, enforced globally,
+  not per-route), and `custom` (sees and can use only the explicitly
+  checked feature areas for that account — everything else isn't just
+  read-only, it's unreachable).
 - Dashboard + **Monitor**: live load/memory/disk gauges, uptime, per-service
   status (nginx/MariaDB/cron/PHP-FPM/panel itself), top processes by CPU.
 
