@@ -57,6 +57,29 @@ def create_app(config_path: Path | None = None) -> Flask:
         g.db = get_db()
 
     @app.before_request
+    def _refresh_session_access():
+        # role/permissions/site_scope are copied into the session at login,
+        # but a Super Admin can change them for an account that's already
+        # logged in elsewhere — without this, that other session keeps its
+        # old (possibly unrestricted) access until it logs out. Re-read them
+        # from the DB on every request so changes apply immediately, and
+        # drop the session outright if the account no longer exists.
+        # Must stay registered before the _enforce_* hooks below.
+        user_id = session.get("user_id")
+        if not user_id:
+            return None
+        row = g.db.execute(
+            "SELECT role, permissions, site_scope FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not row:
+            session.clear()
+            return redirect(cfg.login_url)
+        for key, value in (("role", row["role"]), ("permissions", row["permissions"] or ""), ("site_scope", row["site_scope"] or "")):
+            if session.get(key) != value:  # only touch changed keys, so the cookie isn't re-issued every request
+                session[key] = value
+        return None
+
+    @app.before_request
     def _enforce_viewer_read_only():
         # A "viewer" role can look at everything but change nothing —
         # enforced once, here, rather than re-implementing the check in
