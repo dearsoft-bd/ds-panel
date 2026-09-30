@@ -41,6 +41,12 @@ def list_sites():
     cfg = current_app.config["PANEL_CONFIG"]
     ids = restricted_site_ids()
     if ids is not None:
+        # Fail CLOSED: a site-restricted admin whose site_scope parses to
+        # zero valid site IDs (stale/deleted site, corrupted data, whatever
+        # the cause) must see NO sites, never every site on the server. The
+        # old code here fell through to "SELECT * FROM sites" in that case,
+        # which silently handed a site-restricted account full visibility —
+        # exactly backwards for a security boundary.
         rows = []
         if ids:
             placeholders = ",".join("?" * len(ids))

@@ -69,7 +69,17 @@ def _enforce_file_site_scope():
     for c in candidates:
         if c and not _path_allowed(c, domains):
             flash("You can only access your own website's files.", "error")
-            return redirect(f"{cfg.dashboard_url}files?path={next(iter(sorted(domains)), '')}")
+            # Redirect to the account's own assigned domain — but if
+            # `domains` is empty (no valid site assigned), that must NOT
+            # fall back to `files?path=` (empty string), because an empty
+            # ?path resolves to SITES_ROOT itself and would hand back
+            # every site on the server, undoing the whole point of this
+            # check. Bare `/files` (no ?path at all) safely re-triggers
+            # browse()'s own "no site assigned" handling instead.
+            fallback = next(iter(sorted(domains)), None)
+            if fallback is None:
+                return redirect(f"{cfg.dashboard_url}files")
+            return redirect(f"{cfg.dashboard_url}files?path={fallback}")
     return None
 
 TEXT_EXTENSIONS = {
@@ -216,7 +226,39 @@ def browse():
             # Site-restricted admin: land inside their own site's folder,
             # never the SITES_ROOT listing (which would show every domain
             # on the server, restricted or not).
-            rel_path = next(iter(sorted(domains)), "")
+            #
+            # If `domains` is empty — the account's site_scope didn't
+            # resolve to any real, still-existing site — fail CLOSED. The
+            # old code fell back to `next(iter(sorted(domains)), "")`,
+            # which for an empty set silently returns "", and "" resolves
+            # to SITES_ROOT itself: the listing of every site on the
+            # server. That's exactly the leak this account should never
+            # be able to trigger, so it's refused outright instead of
+            # falling through to a "default" path.
+            if not domains:
+                flash(
+                    "Your account isn't assigned to any site yet — ask your Super Admin to check your "
+                    "site restriction under Account.",
+                    "error",
+                )
+                return render_template(
+                    "files.html",
+                    entries=[],
+                    current_path="",
+                    parent_path="",
+                    breadcrumbs=[],
+                    absolute_path="",
+                    sites_root=str(system_ops.SITES_ROOT),
+                    show_hidden=show_hidden,
+                    default_path="",
+                    trash_rel_path=None,
+                    sites=[],
+                    clipboard=None,
+                    base_url=f"/{cfg.security_path}",
+                    dashboard_url=f"/{cfg.security_path}/",
+                    logout_url=f"/{cfg.security_path}/logout",
+                )
+            rel_path = next(iter(sorted(domains)))
         else:
             rel_path = _get_setting(g.db, SETTING_DEFAULT_PATH, "")
     else:
