@@ -110,8 +110,8 @@
 
     <div class="fp-cta-row">
       <a href="https://dearsoft.com.bd/products/ds-pythone" target="_blank" rel="noopener" class="fp-btn fp-btn-gold">See DS-Pythone Live</a>
-      <a href="https://dearsoft.com.bd/contact" target="_blank" rel="noopener" class="fp-btn fp-btn-outline">Move my store to DS-Pythone</a>
-      <a href="https://dearsoft.com.bd/pricing" target="_blank" rel="noopener" class="fp-btn fp-btn-outline">Editions &amp; pricing</a>
+      <a href="https://dearsoft.com.bd/contact" target="_blank" rel="noopener" class="fp-btn fp-btn-outline-light">Move my store to DS-Pythone</a>
+      <a href="https://dearsoft.com.bd/pricing" target="_blank" rel="noopener" class="fp-btn fp-btn-outline-light">Editions &amp; pricing</a>
     </div>
   </section>
 
@@ -220,7 +220,7 @@
 
     <div class="fp-cta-row">
       <a href="https://dearsoft.com.bd/erp" target="_blank" rel="noopener" class="fp-btn fp-btn-gold">Start the free trial</a>
-      <a href="https://dearsoft.com.bd/erp" target="_blank" rel="noopener" class="fp-btn fp-btn-outline">See ERP details &amp; plans</a>
+      <a href="https://dearsoft.com.bd/erp" target="_blank" rel="noopener" class="fp-btn fp-btn-outline-light">See ERP details &amp; plans</a>
     </div>
   </section>
 
@@ -272,6 +272,13 @@
 .fp-btn-gold { background: linear-gradient(135deg,#f97316,#facc15); color:#1a1206; }
 .fp-btn-blue { background: linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; }
 .fp-btn-outline { background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.25); color:#fff; }
+/* fp-btn-outline is white-on-transparent, made for the dark hero section
+   above. Reused as-is inside a light body section (fp-section /
+   fp-section-alt) it renders white text on a near-white background —
+   invisible. This variant is for outline buttons that sit on the page's
+   normal light background instead. */
+.fp-btn-outline-light { background: transparent; border:1px solid var(--accent); color: var(--accent); }
+.fp-btn-outline-light:hover { background: var(--accent); color:#fff; }
 .fp-hero-photo-wrap { position:relative; flex-shrink:0; margin-left:auto; }
 .fp-hero-photo { width:180px; height:220px; border-radius:16px; padding:3px; background: linear-gradient(135deg,#f97316,#a855f7,#facc15); }
 .fp-hero-photo img { width:100%; height:100%; object-fit:cover; border-radius:13px; display:block; background:#fff; }
