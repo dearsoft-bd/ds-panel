@@ -93,6 +93,22 @@ def register_terminal_ws(app, sock, security_path: str, get_db):
             ws.close()
             return
 
+        # This route is registered on the app, not the "terminal" blueprint,
+        # so the role hooks in app/__init__.py never map it to the
+        # "terminal" feature — and a WS handshake is a GET, which the viewer
+        # hook always lets through. Without this check a viewer, a custom
+        # role without Terminal, or a site-restricted admin could open a
+        # root shell by connecting straight to this URL.
+        role = session.get("role")
+        permissions = set((session.get("permissions") or "").split(","))
+        if not (
+            role == "super_admin"
+            or (role == "admin" and not session.get("site_scope"))
+            or (role == "custom" and "terminal" in permissions)
+        ):
+            ws.close()
+            return
+
         origin = request.headers.get("Origin", "")
         if not _origin_is_trusted(origin, request.host):
             ws.close()
