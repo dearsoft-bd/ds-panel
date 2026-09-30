@@ -3,9 +3,9 @@ can do: which features it holds, which site(s) it is locked to, whether it
 may create further admins under itself (team.py), and what disk capacity
 its dashboard shows.
 
-Disk display "custom" is a deliberate security measure: the account sees a
-Super-Admin-chosen total and only its OWN usage, never the server's real
-size or free space — see disk_view.py.
+Disk, per account: "real" (trusted — the server's actual disk), "quota"
+(a real allocation, enforced in File Manager) or "custom" (masked, display
+only — for accounts the Super Admin considers risky). See disk_view.py.
 """
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session
 
@@ -77,8 +77,8 @@ def save(user_id: int):
     if disk_display not in DISK_DISPLAY_MODES:
         disk_display = "real"
     disk_quota_gb = request.form.get("disk_quota_gb", type=int) or 0
-    if disk_display == "custom" and disk_quota_gb <= 0:
-        flash("Enter the disk size (GB) this account should see, or choose 'Real'.", "error")
+    if disk_display != "real" and disk_quota_gb <= 0:
+        flash("Enter the disk size (GB) for this account, or choose 'Real'.", "error")
         return redirect(back)
 
     can_manage_users = 1 if request.form.get("can_manage_users") == "on" else 0

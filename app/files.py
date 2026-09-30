@@ -12,7 +12,7 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, send_file, session
 
-from . import system_ops
+from . import disk_view, system_ops
 from .security import login_required, restricted_site_ids
 
 bp = Blueprint("files", __name__)
@@ -120,6 +120,57 @@ def _enforce_file_site_scope():
             flash("Your site's own top folder can't be renamed, moved or deleted.", "error")
             return redirect(f"{cfg.dashboard_url}files")
     return None
+
+
+# File Manager actions that add data to disk — refused for a "quota" account
+# (Role Manager's real disk allocation) that is, or would go, over its limit.
+_QUOTA_WRITE_ENDPOINTS = {
+    "files.upload", "files.unzip", "files.paste", "files.save", "files.mkfile",
+    "files.mkdir", "files.zip_selected", "files.trash_restore",
+}
+
+
+def _tree_size(path: Path) -> int:
+    if path.is_file():
+        return path.stat().st_size
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+
+
+def _incoming_bytes() -> int:
+    """Best estimate of how much this request is about to write."""
+    endpoint = request.endpoint
+    if endpoint == "files.upload":
+        return request.content_length or 0
+    if endpoint == "files.save":
+        return len(request.form.get("content", "").encode("utf-8"))
+    try:
+        if endpoint == "files.unzip":
+            with zipfile.ZipFile(system_ops.safe_path(request.form.get("path", ""))) as zf:
+                return sum(info.file_size for info in zf.infolist())
+        if endpoint == "files.paste":
+            clipboard = session.get("file_clipboard") or {}
+            if clipboard.get("mode") == "copy":
+                return sum(_tree_size(system_ops.safe_path(p)) for p in clipboard.get("paths", []))
+    except (OSError, zipfile.BadZipFile, system_ops.SystemOpError):
+        return 0
+    return 0
+
+
+@bp.before_request
+def _enforce_disk_quota():
+    if request.method != "POST" or request.endpoint not in _QUOTA_WRITE_ENDPOINTS:
+        return None
+    if not disk_view.quota_exceeded(g.db, _incoming_bytes()):
+        return None
+    flash("Not enough space left in your disk allocation — free some space, or ask your Super Admin for more.", "error")
+    return _redirect_to(request.form.get("path", ""))
+
+
+@bp.after_request
+def _refresh_disk_usage(response):
+    if request.method == "POST":
+        disk_view.invalidate()
+    return response
 
 
 TEXT_EXTENSIONS = {

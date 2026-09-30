@@ -30,7 +30,8 @@
         {% if a.restricted %}<span class="status-pill">{{ a.scope_set|length }} site(s) only</span>
         {% else %}<span class="status-pill status-ok">Whole server</span>{% endif %}
         {% if a.can_manage_users %}<span class="status-pill">Can create users</span>{% endif %}
-        {% if a.disk_display == "custom" %}<span class="status-pill">Disk shown: {{ a.disk_quota_gb }} GB</span>{% endif %}
+        {% if a.disk_display == "quota" %}<span class="status-pill">Disk allocated: {{ a.disk_quota_gb }} GB</span>
+        {% elif a.disk_display == "custom" %}<span class="status-pill">Disk masked: {{ a.disk_quota_gb }} GB</span>{% endif %}
       </div>
     </div>
 
@@ -75,21 +76,24 @@
     </div>
 
     <div class="role-section">
-      <div class="role-section-title">Disk capacity shown to this account</div>
+      <div class="role-section-title">Disk for this account</div>
       <label class="checkbox-label">
-        <input type="radio" name="disk_display" value="real" {{ "checked" if a.disk_display != "custom" }}>
-        Real — the server's actual disk size and usage
+        <input type="radio" name="disk_display" value="real" {{ "checked" if a.disk_display not in ("quota", "custom") }}>
+        Real — sees the server's actual disk (for trusted admins)
+      </label>
+      <label class="checkbox-label">
+        <input type="radio" name="disk_display" value="quota" {{ "checked" if a.disk_display == "quota" }}>
+        Allocated (real limit) — gets its own space of the size below; File Manager stops uploads once it's full
       </label>
       <label class="checkbox-label">
         <input type="radio" name="disk_display" value="custom" {{ "checked" if a.disk_display == "custom" }}>
-        Custom — show a total of
-        <input type="number" name="disk_quota_gb" min="1" value="{{ a.disk_quota_gb or '' }}" placeholder="50" style="width:90px;"> GB,
-        with only this account's own usage counted
+        Masked (display only) — sees the size below, the server's real disk stays hidden (for risky accounts)
       </label>
-      <div class="muted small" style="margin-top:6px;">
-        Custom hides the server's real size and free space from this account. Display only — it doesn't reserve or
-        limit real disk space.
-      </div>
+      <label class="checkbox-label" style="margin-top:4px;">
+        Size:
+        <input type="number" name="disk_quota_gb" min="1" value="{{ a.disk_quota_gb or '' }}" placeholder="50" style="width:90px;"> GB
+        <span class="muted">(used for Allocated and Masked; only this account's own sites' usage is counted)</span>
+      </label>
     </div>
 
     <button type="submit" style="margin-top:14px;">Save</button>

@@ -88,7 +88,11 @@ SITE_SCOPED_FEATURES = set(SITE_SCOPED_BLUEPRINTS)
 # content is scoped/redacted where needed).
 ALWAYS_OPEN_BLUEPRINTS = {"dashboard", "monitor", "about", "auth", "static", "team"}
 
-DISK_DISPLAY_MODES = ("real", "custom")
+# real   — the server's actual disk (trusted admins)
+# quota  — a real allocation: sees N GB as its own space, own usage counted,
+#          and File Manager refuses writes past N GB (disk_view.py)
+# custom — masked, display only: sees N GB, the real size stays hidden
+DISK_DISPLAY_MODES = ("real", "quota", "custom")
 
 _MAX_CHAIN = 32
 
@@ -156,8 +160,9 @@ def effective_access(db, user_id: int):
             parent_scope = parse_ids(parent["site_scope"])
             scope = parent_scope if scope is None else scope & parent_scope
         can_manage = can_manage and bool(parent["can_manage_users"])
-        if disk_display == "real" and parent["disk_display"] == "custom":
-            disk_display, disk_quota = "custom", parent["disk_quota_gb"] or 0
+        if disk_display == "real" and parent["disk_display"] in ("quota", "custom"):
+            # A team member never sees more of the real disk than its creator.
+            disk_display, disk_quota = parent["disk_display"], parent["disk_quota_gb"] or 0
         parent_id = parent["created_by"]
 
     if scope is not None:

@@ -3,14 +3,17 @@
 "real" (default, and always for the Super Admin): the root filesystem's
 actual size/used/free.
 
-"custom" (set per Admin in Role Manager): a security measure. The account
-sees a Super-Admin-chosen total (disk_quota_gb) and only its OWN usage —
-the combined size of its assigned sites' document roots, or the real used
+"quota" and "custom" (set per Admin in Role Manager) both show the account
+a Super-Admin-chosen total (disk_quota_gb) and only its OWN usage — the
+combined size of its assigned sites' document roots, or the real used
 figure for an account that isn't site-restricted — so free space reads as
-"total minus mine". The server's real size and free space are never shown
-to it. This is display-only: it doesn't reserve or cap anything, and
-anything with shell access (Terminal is never given to a site-restricted
-account) could still read the real numbers.
+"total minus mine", and the server's real size is never shown to it.
+  - quota: a real allocation. File Manager refuses uploads/unzips/pastes
+    that would take the account past it (see quota_exceeded).
+  - custom: masked, display only — for accounts the Super Admin considers
+    risky. Nothing is reserved or capped.
+Anything with shell access could still read the real numbers (Terminal is
+never given to a site-restricted account).
 """
 import os
 import shutil
@@ -68,7 +71,27 @@ def _own_used_bytes(db, real_used_bytes: int) -> int:
 
 
 def is_custom() -> bool:
-    return session.get("role") != "super_admin" and session.get("disk_display") == "custom"
+    """Whether this session sees an allocated/masked disk instead of the real one."""
+    return session.get("role") != "super_admin" and session.get("disk_display") in ("quota", "custom")
+
+
+def invalidate() -> None:
+    """Forget cached folder sizes — called after File Manager writes so the
+    next quota check sees the new usage."""
+    _size_cache.clear()
+
+
+def quota_exceeded(db, extra_bytes: int = 0) -> bool:
+    """For a "quota" session: would `extra_bytes` more take it past its
+    allocation? Always False for every other mode."""
+    if session.get("role") == "super_admin" or session.get("disk_display") != "quota":
+        return False
+    total = int(session.get("disk_quota_gb") or 0) * 1024 ** 3
+    try:
+        real_used = shutil.disk_usage("/").used
+    except OSError:
+        real_used = 0
+    return _own_used_bytes(db, real_used) + max(extra_bytes, 0) > total
 
 
 def apply(stats, db):
