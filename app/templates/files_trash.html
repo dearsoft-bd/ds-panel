@@ -13,10 +13,12 @@
   {% if items %}
   <div class="bulk-toolbar" style="display:flex;">
     <span class="muted small">{{ items|length }} item(s), {{ total_size }} total</span>
+    {% if not site_restricted %}
     <form method="post" action="{{ base_url }}/files/trash/empty" onsubmit="return confirm('Permanently delete all {{ items|length }} item(s) in Trash? This cannot be undone.');" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="link-button danger">Empty Trash</button>
     </form>
+    {% endif %}
   </div>
   {% endif %}
 

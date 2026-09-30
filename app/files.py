@@ -39,8 +39,28 @@ def _restricted_domains() -> set | None:
 
 
 def _path_allowed(rel_path: str, domains: set) -> bool:
-    top = (rel_path or "").strip().lstrip("/").split("/", 1)[0]
-    return top in domains
+    """The path must RESOLVE inside one of `domains`' folders — resolving
+    first means "a.com/../b.com", or a symlink inside a.com pointing at
+    b.com, is judged by where it actually lands. The sites root itself
+    (an empty path) is never allowed: that listing is every site."""
+    try:
+        resolved = system_ops.safe_path(rel_path)
+    except system_ops.SystemOpError:
+        return False
+    parts = resolved.relative_to(system_ops.SITES_ROOT.resolve()).parts
+    return bool(parts) and parts[0] in domains
+
+
+def _trash_row_allowed(item_id, domains: set) -> bool:
+    row = g.db.execute("SELECT original_rel_path FROM file_trash WHERE id = ?", (item_id,)).fetchone()
+    return bool(row) and _path_allowed(row["original_rel_path"], domains)
+
+
+# File Manager settings (default path, show hidden) and Empty Trash are
+# panel-wide, shared by every account — never for a site-restricted admin.
+_RESTRICTED_BLOCKED_ENDPOINTS = {"files.save_settings", "files.trash_empty"}
+# Endpoints that don't take a ?path / form path at all.
+_NO_PATH_ENDPOINTS = {"files.trash", "files.trash_restore", "files.trash_delete", "files.clear_clipboard"}
 
 
 @bp.before_request
@@ -49,16 +69,31 @@ def _enforce_file_site_scope():
     if domains is None:
         return None
     cfg = current_app.config["PANEL_CONFIG"]
-    candidates = []
-    if request.method == "POST":
-        candidates.append(request.form.get("path", ""))
-        candidates.extend(request.form.getlist("selected"))
-    elif request.args.get("path") is not None:
-        # A bare "/files" with NO ?path at all falls through to browse()'s
-        # own default-path logic below, which applies the site-restricted
-        # default (the assigned domain) rather than the panel-wide one —
-        # nothing to validate here yet in that case.
-        candidates.append(request.args.get("path", ""))
+
+    def _deny():
+        flash("You can only access your own website's files.", "error")
+        # Redirect to the account's own assigned domain — never to
+        # `files?path=` (empty), which is the sites root. With no site
+        # assigned at all, bare `/files` shows browse()'s "no site" page.
+        fallback = next(iter(sorted(domains)), None)
+        if fallback is None:
+            return redirect(f"{cfg.dashboard_url}files")
+        return redirect(f"{cfg.dashboard_url}files?path={fallback}")
+
+    endpoint = request.endpoint
+    if endpoint in _RESTRICTED_BLOCKED_ENDPOINTS:
+        return _deny()
+    if endpoint in ("files.trash_restore", "files.trash_delete"):
+        if not _trash_row_allowed(request.form.get("id", type=int), domains):
+            return _deny()
+
+    source = request.form if request.method == "POST" else request.args
+    candidates = list(source.getlist("selected"))
+    # Every path-taking endpoint defaults a missing path to "" (the sites
+    # root), so a missing path is checked as "" too — except a bare "/files",
+    # which browse() itself sends to the account's own site.
+    if endpoint not in _NO_PATH_ENDPOINTS and not (endpoint == "files.browse" and "path" not in source):
+        candidates.append(source.get("path", ""))
     # The clipboard is session-stored and set by an earlier /files/clipboard
     # request (itself already checked here) — but scope can change between
     # copying and pasting (a Super Admin could edit it mid-session), so
@@ -67,20 +102,10 @@ def _enforce_file_site_scope():
     if clipboard:
         candidates.extend(clipboard.get("paths", []))
     for c in candidates:
-        if c and not _path_allowed(c, domains):
-            flash("You can only access your own website's files.", "error")
-            # Redirect to the account's own assigned domain — but if
-            # `domains` is empty (no valid site assigned), that must NOT
-            # fall back to `files?path=` (empty string), because an empty
-            # ?path resolves to SITES_ROOT itself and would hand back
-            # every site on the server, undoing the whole point of this
-            # check. Bare `/files` (no ?path at all) safely re-triggers
-            # browse()'s own "no site assigned" handling instead.
-            fallback = next(iter(sorted(domains)), None)
-            if fallback is None:
-                return redirect(f"{cfg.dashboard_url}files")
-            return redirect(f"{cfg.dashboard_url}files?path={fallback}")
+        if not _path_allowed(c, domains):
+            return _deny()
     return None
+
 
 TEXT_EXTENSIONS = {
     ".html", ".htm", ".css", ".js", ".php", ".txt", ".json", ".xml", ".md", ".conf",
@@ -992,6 +1017,10 @@ def trash():
     cfg = current_app.config["PANEL_CONFIG"]
     base = f"/{cfg.security_path}"
     rows = g.db.execute("SELECT * FROM file_trash ORDER BY deleted_at DESC").fetchall()
+    domains = _restricted_domains()
+    if domains is not None:
+        # Trash is shared by every site — show only this account's own.
+        rows = [r for r in rows if _path_allowed(r["original_rel_path"], domains)]
 
     items = []
     total_size = 0

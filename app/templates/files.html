@@ -71,11 +71,14 @@
       <i class="bi bi-file-earmark-zip"></i> Archives
     </a>
     {% endif %}
+    {% if not site_restricted %}
     <button type="button" class="toolbar-icon-btn" onclick="toggleFileSettings()" title="File Manager settings">
       <i class="bi bi-gear"></i> Settings
     </button>
+    {% endif %}
   </div>
 
+  {% if not site_restricted %}
   <div id="file-settings-panel" class="file-settings-panel" style="display:none;">
     <form method="post" action="{{ base_url }}/files/settings">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -103,6 +106,7 @@
       <button type="submit">Save Settings</button>
     </form>
   </div>
+  {% endif %}
 
   <p class="muted small">
     Tip: "Unzip" is a per-file action in each row — you don't need to check
