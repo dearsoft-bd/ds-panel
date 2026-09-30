@@ -1,7 +1,7 @@
 """Dashboard — quick-stat cards linking into each feature area."""
 from flask import Blueprint, current_app, g, jsonify, render_template, session
 
-from . import system_ops
+from . import disk_view, system_ops
 from .security import login_required, restricted_site_ids
 from .terminal import is_terminal_enabled
 
@@ -61,6 +61,7 @@ def index():
         stats = system_ops.get_system_stats()
     except OSError:
         stats = None
+    disk_view.apply(stats, g.db)
 
     try:
         server_info = system_ops.get_server_info()

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% set active_page = "roles" %}
+{% block title %}Role Manager — DS Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <h2>Role Manager</h2>
+  <p class="muted small">
+    Control exactly what each <b>Admin</b> account can do. Changes apply on that account's very next click — no
+    re-login needed. Admins created by another admin (via its Team page) can never exceed their creator, even if
+    more is ticked here. Create accounts and change roles on the <a href="{{ base_url }}/account">Account</a> page.
+  </p>
+  {% if real_disk %}
+  <p class="muted small">
+    Real server disk (only you see this): <b>{{ real_disk.used_gb }} GB used of {{ real_disk.total_gb }} GB</b>
+    ({{ real_disk.free_gb }} GB free).
+  </p>
+  {% endif %}
+
+  {% for a in admins %}
+  <form method="post" action="{{ base_url }}/roles/{{ a.id }}/save" class="backup-card role-card" data-user="{{ a.id }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="role-card-head">
+      <div>
+        <h3 style="margin:0;">{{ a.username }}</h3>
+        <div class="muted small">
+          {{ a.full_name or "" }}{% if a.created_by_name %} · created by <b>{{ a.created_by_name }}</b>{% endif %}
+        </div>
+      </div>
+      <div class="role-pills">
+        {% if a.restricted %}<span class="status-pill">{{ a.scope_set|length }} site(s) only</span>
+        {% else %}<span class="status-pill status-ok">Whole server</span>{% endif %}
+        {% if a.can_manage_users %}<span class="status-pill">Can create users</span>{% endif %}
+        {% if a.disk_display == "custom" %}<span class="status-pill">Disk shown: {{ a.disk_quota_gb }} GB</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="role-section">
+      <div class="role-section-title">Websites this account can see</div>
+      <label class="checkbox-label">
+        <input type="checkbox" name="site_restricted" class="js-restricted" {{ "checked" if a.restricted }}>
+        Restrict to specific sites only — it sees only these sites' files, backups, SSL and domains
+      </label>
+      <div class="perm-checkbox-grid js-sites" style="margin-top:8px;">
+        {% for s in sites %}
+        <label><input type="checkbox" name="site_scope" value="{{ s.id }}" {{ "checked" if s.id in a.scope_set }}> {{ s.domain }}</label>
+        {% else %}
+        <span class="muted small">No sites exist yet — create one on the Website page first.</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="role-section">
+      <div class="role-section-title">Features</div>
+      <div class="perm-checkbox-grid">
+        {% for key, label in features %}
+        {% set server_wide = key not in site_scoped_features %}
+        <label class="{{ 'js-server-wide' if server_wide }}">
+          <input type="checkbox" name="permissions" value="{{ key }}" {{ "checked" if key in a.feature_set }}>
+          {{ label }}{% if server_wide %} <span class="role-root-tag" title="Runs as root across the whole server — not available with a site restriction">server-wide</span>{% endif %}
+        </label>
+        {% endfor %}
+      </div>
+      <div class="muted small js-restricted-note" style="margin-top:6px;">
+        Server-wide features (Terminal, Cron, Docker, SSH, ...) can't be given to a site-restricted account — they
+        would let it reach every other site on the server.
+      </div>
+    </div>
+
+    <div class="role-section">
+      <div class="role-section-title">User management</div>
+      <label class="checkbox-label">
+        <input type="checkbox" name="can_manage_users" {{ "checked" if a.can_manage_users }}>
+        Can create its own admin users (e.g. support/editor) — never with more features or sites than it has itself
+      </label>
+    </div>
+
+    <div class="role-section">
+      <div class="role-section-title">Disk capacity shown to this account</div>
+      <label class="checkbox-label">
+        <input type="radio" name="disk_display" value="real" {{ "checked" if a.disk_display != "custom" }}>
+        Real — the server's actual disk size and usage
+      </label>
+      <label class="checkbox-label">
+        <input type="radio" name="disk_display" value="custom" {{ "checked" if a.disk_display == "custom" }}>
+        Custom — show a total of
+        <input type="number" name="disk_quota_gb" min="1" value="{{ a.disk_quota_gb or '' }}" placeholder="50" style="width:90px;"> GB,
+        with only this account's own usage counted
+      </label>
+      <div class="muted small" style="margin-top:6px;">
+        Custom hides the server's real size and free space from this account. Display only — it doesn't reserve or
+        limit real disk space.
+      </div>
+    </div>
+
+    <button type="submit" style="margin-top:14px;">Save</button>
+  </form>
+  {% else %}
+  <p class="muted">No Admin accounts yet — create one on the <a href="{{ base_url }}/account">Account</a> page.</p>
+  {% endfor %}
+</div>
+<style>
+  .role-card { margin-top: 18px; }
+  .role-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .role-pills { display:flex; gap:6px; flex-wrap:wrap; }
+  .role-section { margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+  .role-section-title { font-weight:600; font-size:13px; margin-bottom:8px; }
+  .role-section .checkbox-label { margin-bottom:6px; flex-wrap:wrap; }
+  .role-root-tag { font-size:10px; padding:1px 6px; border-radius:6px; background:rgba(239,68,68,0.12); color:var(--error); }
+  .perm-checkbox-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap:6px 14px; }
+  .perm-checkbox-grid label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal; }
+  .perm-checkbox-grid label.is-disabled { opacity:.45; }
+</style>
+<script>
+  // Mirror the server-side rule: a site-restricted account can't hold
+  // server-wide features, so grey those out while the restriction is ticked.
+  document.querySelectorAll('.role-card').forEach(function (card) {
+    var toggle = card.querySelector('.js-restricted');
+    function sync() {
+      var restricted = toggle.checked;
+      card.querySelector('.js-sites').style.display = restricted ? '' : 'none';
+      card.querySelector('.js-restricted-note').style.display = restricted ? '' : 'none';
+      card.querySelectorAll('.js-server-wide').forEach(function (label) {
+        var box = label.querySelector('input');
+        box.disabled = restricted;
+        label.classList.toggle('is-disabled', restricted);
+      });
+    }
+    toggle.addEventListener('change', sync);
+    sync();
+  });
+</script>
+{% endblock %}

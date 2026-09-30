@@ -23,10 +23,10 @@ security.super_admin_required) — a regular admin, even an unrestricted
 one, can no longer manage other accounts (otherwise a site-restricted
 admin could simply un-restrict themselves).
 
-FEATURES/BLUEPRINT_TO_FEATURE are the single source of truth for what a
-"feature" is, used both here (to render the checkboxes) and in
-app/__init__.py's before_request hook (to actually gate every request by
-blueprint). Dashboard, Account (Super-Admin-only) and Monitor are
+FEATURES/BLUEPRINT_TO_FEATURE live in permissions.py. An Admin's feature
+list, site restriction, user-creation right and disk display are edited in
+Role Manager (role_manager.py); this page creates accounts and changes
+roles. Dashboard, Account (Super-Admin-only) and Monitor are
 intentionally never gated by FEATURES — every logged-in user can always
 reach them (Monitor's own content is still redacted for a site-restricted
 admin — see monitor.py).
@@ -38,60 +38,13 @@ import string
 import bcrypt
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session
 
+from .permissions import ALL, FEATURE_KEYS, FEATURES
 from .security import super_admin_required
 
 bp = Blueprint("account", __name__)
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 ROLES = ["super_admin", "admin", "viewer", "custom"]
-
-# (feature key, label shown in the UI)
-FEATURES = [
-    ("sites", "Website / Sites"),
-    ("domains", "Domains"),
-    ("files", "File Manager"),
-    ("databases", "Databases"),
-    ("backups", "Backups"),
-    ("backup_jobs", "Backup Jobs"),
-    ("docker", "Docker"),
-    ("firewall", "Security / Firewall"),
-    ("waf", "WAF"),
-    ("mail_server", "Mail Server"),
-    ("logs", "Logs"),
-    ("dropshipping", "Dropshipping"),
-    ("ssh_access", "SSH Access"),
-    ("terminal", "Terminal"),
-    ("ai", "AI Assistant"),
-    ("cron", "Cron Jobs"),
-    ("app_store", "App Store"),
-    ("settings", "Settings"),
-]
-FEATURE_KEYS = {key for key, _ in FEATURES}
-
-# Maps every gate-able blueprint to the feature key that controls it — several
-# blueprints can share one checkbox (e.g. node_manager/disk_manager are part
-# of the "Website / Sites" area, not separate toggles of their own).
-BLUEPRINT_TO_FEATURE = {
-    "sites": "sites", "node_manager": "sites", "disk_manager": "sites",
-    "domains": "domains",
-    "files": "files",
-    "databases": "databases",
-    "backups": "backups",
-    "backup_jobs": "backup_jobs",
-    "docker_manager": "docker",
-    "firewall": "firewall", "tamper_proof": "firewall", "php_security": "firewall",
-    "waf": "waf",
-    "mail_server": "mail_server",
-    "logs": "logs",
-    "dropshipping": "dropshipping",
-    "ssh_access": "ssh_access",
-    "terminal": "terminal",
-    "ai": "ai",
-    "cron": "cron",
-    "app_store": "app_store",
-    "settings": "settings", "oauth_google": "settings",
-}
-
 
 def _parse_permissions(form) -> str:
     selected = [p for p in form.getlist("permissions") if p in FEATURE_KEYS]
@@ -170,6 +123,10 @@ def add_user():
         if not site_scope:
             flash("Check 'Restrict to specific sites' and pick at least one site, or leave it unchecked.", "error")
             return redirect(f"{cfg.dashboard_url}account")
+    if role == "admin":
+        # Defaults, fine-tuned afterwards in Role Manager: everything for a
+        # whole-server admin; just its Website + File Manager when restricted.
+        permissions = "files,sites" if site_scope else ALL
 
     existing = g.db.execute("SELECT id FROM users WHERE username = ?", (new_username,)).fetchone()
     if existing:
@@ -214,6 +171,10 @@ def delete_user(user_id: int):
             flash("Can't delete the last Super Admin account — the panel would become unmanageable.", "error")
             return redirect(f"{cfg.dashboard_url}account")
 
+    if g.db.execute("SELECT 1 FROM users WHERE created_by = ?", (user_id,)).fetchone():
+        flash(f"'{row['username']}' still has team members it created — delete those first.", "error")
+        return redirect(f"{cfg.dashboard_url}account")
+
     g.db.execute("DELETE FROM users WHERE id = ?", (user_id,))
     g.db.commit()
     flash(f"User '{row['username']}' deleted.", "success")
@@ -252,6 +213,8 @@ def change_role(user_id: int):
     # what makes that two-step flow possible.
     permissions = _parse_permissions(request.form) if new_role == "custom" else ""
     site_scope = "" if new_role != "admin" else row["site_scope"]  # admin keeps its existing scope across other edits
+    if new_role == "admin":
+        permissions = row["permissions"] if row["role"] == "admin" else ALL
 
     g.db.execute(
         "UPDATE users SET role = ?, permissions = ?, site_scope = ? WHERE id = ?",

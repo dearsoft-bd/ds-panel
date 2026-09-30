@@ -8,9 +8,27 @@ config, every alias just gets added to the site's existing vhost.
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session
 
 from . import system_ops
-from .security import login_required
+from .security import login_required, restricted_site_ids
 
 bp = Blueprint("domains", __name__)
+
+
+@bp.before_request
+def _enforce_domains_site_scope():
+    # A site-restricted admin can only add/remove aliases on its own site(s).
+    ids = restricted_site_ids()
+    if ids is None or request.endpoint == "domains.index":
+        return None
+    cfg = current_app.config["PANEL_CONFIG"]
+    site_id = request.form.get("site_id", type=int)
+    alias_id = (request.view_args or {}).get("alias_id")
+    if alias_id is not None:
+        alias = g.db.execute("SELECT site_id FROM domain_aliases WHERE id = ?", (alias_id,)).fetchone()
+        site_id = alias["site_id"] if alias else None
+    if site_id not in ids:
+        flash("You can only manage your own site's domains.", "error")
+        return redirect(f"{cfg.dashboard_url}domains")
+    return None
 
 
 @bp.route("/domains")
@@ -20,6 +38,9 @@ def index():
     base = f"/{cfg.security_path}"
 
     sites = g.db.execute("SELECT * FROM sites ORDER BY domain").fetchall()
+    ids = restricted_site_ids()
+    if ids is not None:
+        sites = [row for row in sites if row["id"] in ids]
     aliases_by_site = {}
     for row in g.db.execute("SELECT * FROM domain_aliases ORDER BY domain").fetchall():
         aliases_by_site.setdefault(row["site_id"], []).append(row)

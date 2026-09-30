@@ -60,6 +60,9 @@
         {% endif %}
         {% if session.get('role') == 'super_admin' %}
         <a href="{{ base_url }}/account" class="{{ 'active' if active_page == 'account' }}"><i class="bi bi-person"></i> Account</a>
+        <a href="{{ base_url }}/roles" class="{{ 'active' if active_page == 'roles' }}"><i class="bi bi-shield-check"></i> Role Manager</a>
+        {% elif can_manage_team %}
+        <a href="{{ base_url }}/team" class="{{ 'active' if active_page == 'team' }}"><i class="bi bi-people"></i> Team</a>
         {% else %}
         <span class="nav-disabled"><i class="bi bi-person"></i> Account</span>
         {% endif %}

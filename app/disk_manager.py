@@ -5,10 +5,20 @@ server unable to boot — mounts made this way don't survive a reboot.
 """
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session
 
-from . import system_ops
+from . import disk_view, system_ops
 from .security import login_required
 
 bp = Blueprint("disk_manager", __name__)
+
+
+@bp.before_request
+def _hide_real_disks():
+    # Listing block devices would reveal the real disk sizes that a
+    # "custom" disk display (Role Manager) exists to hide.
+    if disk_view.is_custom():
+        flash("Disk management isn't available for your account.", "error")
+        return redirect(current_app.config["PANEL_CONFIG"].dashboard_url)
+    return None
 
 
 @bp.route("/disk-manager")

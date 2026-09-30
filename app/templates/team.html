@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% set active_page = "team" %}
+{% block title %}Team — DS Panel{% endblock %}
+{% macro access_fields(member=None) %}
+  <div class="role-section">
+    <div class="role-section-title">Websites</div>
+    {% if i_am_restricted %}
+    <input type="hidden" name="site_restricted" value="on">
+    {% else %}
+    <label class="checkbox-label">
+      <input type="checkbox" name="site_restricted" class="js-restricted" {{ "checked" if member and member.restricted }}>
+      Restrict to specific sites only
+    </label>
+    {% endif %}
+    <div class="perm-checkbox-grid js-sites" style="margin-top:8px;">
+      {% for s in sites %}
+      <label><input type="checkbox" name="site_scope" value="{{ s.id }}" {{ "checked" if member and s.id in member.scope_set }}> {{ s.domain }}</label>
+      {% else %}
+      <span class="muted small">No sites available.</span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="role-section">
+    <div class="role-section-title">Features</div>
+    <div class="perm-checkbox-grid">
+      {% for key, label in features %}
+      {% if not i_am_restricted or key in site_scoped_features %}
+      <label class="{{ 'js-server-wide' if key not in site_scoped_features }}">
+        <input type="checkbox" name="permissions" value="{{ key }}" {{ "checked" if member and key in member.feature_set }}> {{ label }}
+      </label>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="role-section">
+    <label class="checkbox-label">
+      <input type="checkbox" name="can_manage_users" {{ "checked" if member and member.can_manage_users }}>
+      Can create its own users too (within the same limits)
+    </label>
+  </div>
+{% endmacro %}
+{% block content %}
+<div class="page">
+  <h2>Team</h2>
+  <p class="muted small">
+    Create admin accounts for people who help you — support, editors, developers. Each one gets at most your own
+    features and only your own site(s); if your access is narrowed later, theirs narrows with it.
+  </p>
+
+  <form method="post" action="{{ base_url }}/team/add" class="backup-card role-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 style="margin-top:0;">Add team member</h3>
+    <div class="add-site-form">
+      <input type="text" name="full_name" placeholder="full name">
+      <input type="email" name="email" placeholder="email@example.com">
+      <input type="text" name="username" placeholder="username" required>
+      <input type="text" name="password" placeholder="password (optional, min 8 — auto-generated if blank)" autocomplete="off">
+    </div>
+    {{ access_fields() }}
+    <button type="submit" style="margin-top:14px;">Add User</button>
+  </form>
+
+  {% for m in members %}
+  <div class="backup-card role-card">
+    <div class="role-card-head">
+      <div>
+        <h3 style="margin:0;">{{ m.username }}</h3>
+        <div class="muted small">{{ m.full_name or "" }}{% if m.email %} · {{ m.email }}{% endif %}</div>
+      </div>
+      <div class="row-actions">
+        <form method="post" action="{{ base_url }}/team/{{ m.id }}/reset-password" style="display:inline"
+              onsubmit="return confirm('Reset the password for {{ m.username }}? A new one will be generated and shown once.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="link-button">Reset Password</button>
+        </form>
+        <form method="post" action="{{ base_url }}/team/{{ m.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Delete user {{ m.username }}?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="link-button danger">Delete</button>
+        </form>
+      </div>
+    </div>
+    <form method="post" action="{{ base_url }}/team/{{ m.id }}/save">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ access_fields(m) }}
+      <button type="submit" style="margin-top:14px;">Save</button>
+    </form>
+  </div>
+  {% else %}
+  <p class="muted" style="margin-top:18px;">No team members yet.</p>
+  {% endfor %}
+</div>
+<style>
+  .role-card { margin-top: 18px; }
+  .role-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .role-section { margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+  .role-section-title { font-weight:600; font-size:13px; margin-bottom:8px; }
+  .perm-checkbox-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap:6px 14px; }
+  .perm-checkbox-grid label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal; }
+  .perm-checkbox-grid label.is-disabled { opacity:.45; }
+</style>
+<script>
+  document.querySelectorAll('.role-card').forEach(function (card) {
+    var toggle = card.querySelector('.js-restricted');
+    if (!toggle) return;
+    function sync() {
+      var restricted = toggle.checked;
+      card.querySelector('.js-sites').style.display = restricted ? '' : 'none';
+      card.querySelectorAll('.js-server-wide').forEach(function (label) {
+        label.querySelector('input').disabled = restricted;
+        label.classList.toggle('is-disabled', restricted);
+      });
+    }
+    toggle.addEventListener('change', sync);
+    sync();
+  });
+</script>
+{% endblock %}

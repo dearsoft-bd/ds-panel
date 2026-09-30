@@ -51,9 +51,11 @@
 
   <div style="display:flex; align-items:center; justify-content:space-between; margin-top:36px;">
     <h3 style="margin:0;">Actions Log</h3>
+    {% if not site_restricted %}
     <button type="button" class="db-btn-delete" onclick="dsClearBackupLog();">
       <i class="bi bi-trash3"></i> Clear Log
     </button>
+    {% endif %}
   </div>
   <table class="data-table">
     <thead><tr><th>When</th><th>Action</th><th>Target</th><th>Status</th><th>Detail</th></tr></thead>
