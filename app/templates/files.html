@@ -45,6 +45,9 @@
   {% endif %}
 
   <div class="file-toolbar">
+    {# A site-restricted admin's root view is just its own site folders — nothing can be created there. #}
+    {% set root_readonly = site_restricted and not current_path.strip('/') %}
+    {% if not root_readonly %}
     <form method="post" action="{{ base_url }}/files/upload" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="path" value="{{ current_path }}">
@@ -63,6 +66,7 @@
       <input type="text" name="name" placeholder="new-file.txt" required>
       <button type="submit">New File</button>
     </form>
+    {% endif %}
     <a href="{{ base_url }}/files/trash" class="toolbar-icon-btn" title="Deleted files — restore or delete forever">
       <i class="bi bi-trash3"></i> Trash
     </a>

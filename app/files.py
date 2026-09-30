@@ -90,9 +90,11 @@ def _enforce_file_site_scope():
     source = request.form if request.method == "POST" else request.args
     candidates = list(source.getlist("selected"))
     # Every path-taking endpoint defaults a missing path to "" (the sites
-    # root), so a missing path is checked as "" too — except a bare "/files",
-    # which browse() itself sends to the account's own site.
-    if endpoint not in _NO_PATH_ENDPOINTS and not (endpoint == "files.browse" and "path" not in source):
+    # root), so a missing path is checked as "" too — except browsing the
+    # root itself (bare "/files" or ?path=), which browse() narrows to this
+    # account's own site folders. Nothing else may target the root.
+    browsing_root = endpoint == "files.browse" and not source.get("path", "").strip().strip("/")
+    if endpoint not in _NO_PATH_ENDPOINTS and not browsing_root:
         candidates.append(source.get("path", ""))
     # The clipboard is session-stored and set by an earlier /files/clipboard
     # request (itself already checked here) — but scope can change between
@@ -104,6 +106,19 @@ def _enforce_file_site_scope():
     for c in candidates:
         if not _path_allowed(c, domains):
             return _deny()
+
+    # The site folder itself is the site's nginx document root — renaming,
+    # deleting or cutting it would take the site down, so that's only for
+    # an unrestricted admin. Everything inside it stays fully manageable.
+    moving = endpoint in ("files.rename", "files.delete", "files.bulk_delete") or (
+        endpoint == "files.set_clipboard" and source.get("mode") != "copy"
+    )
+    if moving:
+        items = [source.get("path", "")] if endpoint in ("files.rename", "files.delete") else source.getlist("selected")
+        root = system_ops.SITES_ROOT.resolve()
+        if any(len(system_ops.safe_path(i).relative_to(root).parts) == 1 for i in items):
+            flash("Your site's own top folder can't be renamed, moved or deleted.", "error")
+            return redirect(f"{cfg.dashboard_url}files")
     return None
 
 
@@ -283,7 +298,9 @@ def browse():
                     dashboard_url=f"/{cfg.security_path}/",
                     logout_url=f"/{cfg.security_path}/logout",
                 )
-            rel_path = next(iter(sorted(domains)))
+            # One site: open it directly. Several: the root listing, which
+            # below shows only this account's own site folders.
+            rel_path = next(iter(domains)) if len(domains) == 1 else ""
         else:
             rel_path = _get_setting(g.db, SETTING_DEFAULT_PATH, "")
     else:
@@ -299,9 +316,19 @@ def browse():
         flash("Path not found.", "error")
         return redirect(f"{cfg.dashboard_url}files?path=")
 
+    # A site-restricted admin's view of the sites root is only its own
+    # site folders (the before_request hook lets exactly that listing
+    # through, and nothing else at the root).
+    restricted_domains = _restricted_domains()
+    root_filter = restricted_domains if (
+        restricted_domains is not None and target == system_ops.SITES_ROOT.resolve()
+    ) else None
+
     entries = []
     if target.is_dir():
         for child in sorted(target.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
+            if root_filter is not None and child.name not in root_filter:
+                continue
             if child.name.startswith(".") and not show_hidden:
                 continue
             stat = child.stat()
