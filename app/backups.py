@@ -9,9 +9,25 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, send_file, session
 
 from . import system_ops
-from .security import login_required
+from .security import login_required, restricted_site_domains
 
 bp = Blueprint("backups", __name__)
+
+
+@bp.before_request
+def _enforce_backup_site_scope():
+    # A site-restricted admin only ever sees/acts on its own sites' backups —
+    # never database backups (databases aren't tied to a site) and never the
+    # shared actions log.
+    domains = restricted_site_domains()
+    if domains is None or request.endpoint == "backups.list_backups":
+        return None
+    cfg = current_app.config["PANEL_CONFIG"]
+    source = request.form if request.method == "POST" else request.args
+    if request.endpoint == "backups.clear_log" or source.get("type") != "sites" or source.get("name") not in domains:
+        flash("You can only manage your own site's backups.", "error")
+        return redirect(f"{cfg.dashboard_url}backups")
+    return None
 
 
 def _human_size(num_bytes: int) -> str:
@@ -38,6 +54,9 @@ def list_backups():
     base = f"/{cfg.security_path}"
 
     raw = system_ops.list_backups()
+    domains = restricted_site_domains()
+    if domains is not None:
+        raw = [b for b in raw if b["target_type"] == "sites" and b["target_name"] in domains]
 
     # Grouped by (type, target) so each card in the template lists every
     # available date for one site/database, newest first — building this
@@ -59,6 +78,8 @@ def list_backups():
     log_rows = g.db.execute(
         "SELECT * FROM backup_log ORDER BY id DESC LIMIT 50"
     ).fetchall()
+    if domains is not None:
+        log_rows = [r for r in log_rows if r["target_type"] == "sites" and r["target_name"] in domains]
 
     return render_template(
         "backups.html",

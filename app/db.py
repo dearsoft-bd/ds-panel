@@ -231,6 +231,22 @@ def _migrate(conn: sqlite3.Connection) -> None:
     _add_column_if_missing(conn, "users", "role", "TEXT NOT NULL DEFAULT 'admin'")
     _add_column_if_missing(conn, "users", "permissions", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "users", "site_scope", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "users", "created_by", "INTEGER")
+    _add_column_if_missing(conn, "users", "can_manage_users", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "users", "disk_display", "TEXT NOT NULL DEFAULT 'real'")
+    _add_column_if_missing(conn, "users", "disk_quota_gb", "INTEGER NOT NULL DEFAULT 0")
+
+    # Admin accounts used to have no feature list at all: '' meant "every
+    # feature", or "Website + File Manager only" when site-restricted. Admin
+    # features are now explicit ('*' = all, see permissions.py), so translate
+    # the old meaning once — guarded by a settings flag, because '' is also
+    # a legitimate "no features" value afterwards.
+    migrated = conn.execute("SELECT value FROM settings WHERE key = 'admin_features_migrated'").fetchone()
+    if not migrated:
+        conn.execute("UPDATE users SET permissions = '*' WHERE role = 'admin' AND permissions = '' AND site_scope = ''")
+        conn.execute("UPDATE users SET permissions = 'files,sites' WHERE role = 'admin' AND permissions = '' AND site_scope != ''")
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_features_migrated', '1')")
+        conn.commit()
 
     # Pre-existing installs: the single super-user tier used to just be
     # 'admin'. Promote the earliest-created 'admin' account to 'super_admin'

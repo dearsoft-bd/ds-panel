@@ -13,9 +13,23 @@ from pathlib import Path
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session
 
 from . import system_ops
-from .security import login_required
+from .security import login_required, restricted_site_ids
 
 bp = Blueprint("app_store", __name__)
+
+
+@bp.before_request
+def _enforce_app_store_site_scope():
+    # A site-restricted admin may install apps into / connect a CDN for its
+    # own site(s) only, and never install server-wide software.
+    ids = restricted_site_ids()
+    if ids is None or request.endpoint == "app_store.index":
+        return None
+    cfg = current_app.config["PANEL_CONFIG"]
+    if request.endpoint == "app_store.install_software" or request.form.get("site_id", type=int) not in ids:
+        flash("You can only install into your own site.", "error")
+        return redirect(f"{cfg.dashboard_url}app-store")
+    return None
 
 APPS = {
     "wordpress": "WordPress",
@@ -95,6 +109,9 @@ def index():
     sites = g.db.execute(
         "SELECT * FROM sites WHERE site_type = 'php' ORDER BY domain"
     ).fetchall()
+    ids = restricted_site_ids()
+    if ids is not None:
+        sites = [row for row in sites if row["id"] in ids]
     software_status = {
         key: entry["is_installed"]() for key, entry in SERVER_SOFTWARE.items()
     }

@@ -97,3 +97,16 @@ def restricted_site_ids():
     if session.get("role") != "admin" or not session.get("site_scope"):
         return None
     return {int(x) for x in session["site_scope"].split(",") if x.strip().isdigit()}
+
+
+def restricted_site_domains():
+    """Same as restricted_site_ids(), but the assigned sites' domain names —
+    None = unrestricted, a set (possibly empty) = only these domains."""
+    ids = restricted_site_ids()
+    if ids is None:
+        return None
+    if not ids:
+        return set()
+    placeholders = ",".join("?" * len(ids))
+    rows = g.db.execute(f"SELECT domain FROM sites WHERE id IN ({placeholders})", list(ids)).fetchall()
+    return {r["domain"] for r in rows}

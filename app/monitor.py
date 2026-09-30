@@ -3,9 +3,9 @@ snapshot. This is the deeper page the dashboard's small gauges link out
 to; no historical/persisted graphing in v1 (that would need a periodic
 sampler + its own storage — a reasonable v2 addition, not built yet).
 """
-from flask import Blueprint, current_app, render_template, session
+from flask import Blueprint, current_app, g, render_template, session
 
-from . import system_ops
+from . import disk_view, system_ops
 from .security import login_required, restricted_site_ids
 
 bp = Blueprint("monitor", __name__)
@@ -22,6 +22,7 @@ def index():
         stats = system_ops.get_system_stats()
     except OSError:
         stats = None
+    disk_view.apply(stats, g.db)
 
     # CPU/RAM/disk totals, load, uptime and service status are all generic
     # server-wide numbers — none of them identify another tenant, so a

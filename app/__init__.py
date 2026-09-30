@@ -12,9 +12,16 @@ from flask import Flask, flash, g, redirect, request, session
 from flask_sock import Sock
 from flask_wtf import CSRFProtect
 
-from .account import BLUEPRINT_TO_FEATURE
 from .config import load_config
 from .db import get_connection, init_db
+from .permissions import (
+    ALWAYS_OPEN_BLUEPRINTS,
+    BLUEPRINT_TO_FEATURE,
+    SITE_SCOPED_BLUEPRINTS,
+    effective_access,
+    session_features,
+    session_has_feature,
+)
 
 
 
@@ -61,20 +68,19 @@ def create_app(config_path: Path | None = None) -> Flask:
         # role/permissions/site_scope are copied into the session at login,
         # but a Super Admin can change them for an account that's already
         # logged in elsewhere — without this, that other session keeps its
-        # old (possibly unrestricted) access until it logs out. Re-read them
-        # from the DB on every request so changes apply immediately, and
-        # drop the session outright if the account no longer exists.
+        # old (possibly unrestricted) access until it logs out. Recompute
+        # the EFFECTIVE values (clamped by every creator up the chain — see
+        # permissions.effective_access) on every request so changes apply
+        # immediately, and drop the session if the account no longer exists.
         # Must stay registered before the _enforce_* hooks below.
         user_id = session.get("user_id")
         if not user_id:
             return None
-        row = g.db.execute(
-            "SELECT role, permissions, site_scope FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
-        if not row:
+        access = effective_access(g.db, user_id)
+        if access is None:
             session.clear()
             return redirect(cfg.login_url)
-        for key, value in (("role", row["role"]), ("permissions", row["permissions"] or ""), ("site_scope", row["site_scope"] or "")):
+        for key, value in access.items():
             if session.get(key) != value:  # only touch changed keys, so the cookie isn't re-issued every request
                 session[key] = value
         return None
@@ -97,73 +103,60 @@ def create_app(config_path: Path | None = None) -> Flask:
         return None
 
     @app.before_request
-    def _enforce_custom_role_permissions():
-        # A "custom" role only reaches the feature areas explicitly checked
-        # for that account (see account.FEATURES/BLUEPRINT_TO_FEATURE) — for
-        # those areas both read AND write work normally; every other
-        # gate-able blueprint is entirely unreachable, not just read-only.
-        # Dashboard/Account/Monitor/auth/static are never in
-        # BLUEPRINT_TO_FEATURE, so they stay open to every logged-in user.
-        if session.get("role") != "custom":
+    def _enforce_feature_permissions():
+        # "custom" and "admin" accounts only reach the feature areas their
+        # effective permissions hold (admins: '*' = all, set by the Super
+        # Admin in Role Manager) — for those areas both read AND write work
+        # normally; every other gate-able blueprint is entirely unreachable,
+        # not just read-only. Dashboard/Account/Monitor/auth/static are never
+        # in BLUEPRINT_TO_FEATURE, so they stay open to every logged-in user.
+        if session.get("role") not in ("custom", "admin"):
             return None
         if request.endpoint is None:
             return None
         blueprint = request.endpoint.split(".", 1)[0]
         feature = BLUEPRINT_TO_FEATURE.get(blueprint)
-        if feature is None:
-            return None
-        allowed = set((session.get("permissions") or "").split(",")) if session.get("permissions") else set()
-        if feature in allowed:
+        if feature is None or session_has_feature(session, feature):
             return None
         flash("Your account doesn't have access to that feature.", "error")
         return redirect(cfg.dashboard_url)
 
-    # Blueprints a site-restricted admin may still reach at all — their own
-    # Website entry and its File Manager, plus the always-open
-    # Dashboard/Monitor/About/auth. Everything else in BLUEPRINT_TO_FEATURE
-    # (Databases, Backups, Firewall, Terminal, SSH, Docker, Mail Server,
-    # Cron, App Store, Logs, Settings, Domains, ...) is completely
-    # unreachable — not read-only, gone — matching "only their site + files,
-    # nothing else".
-    # "static" must be allowed too — it's Flask's own CSS/JS/image blueprint,
-    # not a real feature area, and without it every static asset request gets
-    # redirected away for this role, breaking the entire page's styling.
-    SITE_RESTRICTED_BLUEPRINTS = {"dashboard", "files", "sites", "monitor", "about", "auth", "static"}
-    SITE_RESTRICTED_FEATURES = {"sites", "files"}
-
     @app.before_request
     def _enforce_site_restricted_admin():
         # An 'admin' a Super Admin has locked to specific sites (site_scope)
-        # can only reach the blueprints above — everything else redirects
-        # home with an explanation. Which SITE(S) within those blueprints
-        # (which domain's files, which row on the Website page) is enforced
-        # separately, per-request, inside files.py/sites.py themselves —
-        # this hook only decides which PAGES exist for this session at all.
+        # can only reach the always-open blueprints plus the site-scoped ones
+        # its features include — never Terminal/Cron/Docker/SSH/etc., which
+        # run as root across the whole server (their feature bits are already
+        # stripped by effective_access; this is the page-level backstop, and
+        # it also blocks non-blueprint endpoints like the terminal WebSocket).
+        # Which SITE(S) within those blueprints is enforced separately,
+        # per-request, inside files.py/sites.py/backups.py/... themselves.
         if session.get("role") != "admin" or not session.get("site_scope"):
             return None
         if request.endpoint is None:
             return None
         blueprint = request.endpoint.split(".", 1)[0]
-        if blueprint in SITE_RESTRICTED_BLUEPRINTS:
+        if blueprint in ALWAYS_OPEN_BLUEPRINTS:
             return None
-        flash("Your account is restricted to your own website and its files only.", "error")
+        features = session_features(session)
+        if any(blueprint in bps for f, bps in SITE_SCOPED_BLUEPRINTS.items() if f in features):
+            return None
+        flash("Your account is restricted to your own website only.", "error")
         return redirect(cfg.dashboard_url)
 
     def _has_feature(key: str) -> bool:
-        role = session.get("role")
-        if role == "admin" and session.get("site_scope"):
-            return key in SITE_RESTRICTED_FEATURES
-        if role != "custom":
-            return True
-        allowed = set((session.get("permissions") or "").split(",")) if session.get("permissions") else set()
-        return key in allowed
+        return session_has_feature(session, key)
 
     def _is_site_restricted() -> bool:
         return session.get("role") == "admin" and bool(session.get("site_scope"))
 
     @app.context_processor
     def _inject_has_feature():
-        return {"has_feature": _has_feature, "site_restricted": _is_site_restricted()}
+        return {
+            "has_feature": _has_feature,
+            "site_restricted": _is_site_restricted(),
+            "can_manage_team": session.get("role") == "admin" and bool(session.get("can_manage_users")),
+        }
 
     @app.teardown_appcontext
     def _close_db(_exc):
@@ -173,7 +166,7 @@ def create_app(config_path: Path | None = None) -> Flask:
 
     CSRFProtect(app)
 
-    from . import about, account, ai, app_store, auth, backup_jobs, backups, cron, dashboard, databases, disk_manager, docker_manager, domains, dropshipping, files, firewall, logs, mail_server, monitor, node_manager, oauth_google, php_security, settings, sites, ssh_access, tamper_proof, terminal, waf
+    from . import about, account, ai, app_store, auth, backup_jobs, backups, cron, dashboard, databases, disk_manager, docker_manager, domains, dropshipping, files, firewall, logs, mail_server, monitor, node_manager, oauth_google, php_security, role_manager, settings, sites, ssh_access, tamper_proof, team, terminal, waf
 
     app.register_blueprint(auth.bp, url_prefix=f"/{cfg.security_path}")
     app.register_blueprint(dashboard.bp, url_prefix=f"/{cfg.security_path}")
@@ -203,6 +196,8 @@ def create_app(config_path: Path | None = None) -> Flask:
     app.register_blueprint(disk_manager.bp, url_prefix=f"/{cfg.security_path}")
     app.register_blueprint(dropshipping.bp, url_prefix=f"/{cfg.security_path}")
     app.register_blueprint(about.bp, url_prefix=f"/{cfg.security_path}")
+    app.register_blueprint(role_manager.bp, url_prefix=f"/{cfg.security_path}")
+    app.register_blueprint(team.bp, url_prefix=f"/{cfg.security_path}")
 
     sock = Sock(app)
     terminal.register_terminal_ws(app, sock, cfg.security_path, get_db)

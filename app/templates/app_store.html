@@ -100,6 +100,7 @@
   </div>
   {% endif %}
 
+  {% if not site_restricted %}
   <h2 style="margin-top:36px;">Server Software</h2>
   <p class="muted small">
     These run server-wide rather than into one site's document root.
@@ -153,5 +154,6 @@
     </div>
     {% endfor %}
   </div>
+  {% endif %}
 </div>
 {% endblock %}

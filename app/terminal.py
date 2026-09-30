@@ -26,6 +26,7 @@ import struct
 
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session
 
+from .permissions import session_has_feature
 from .security import login_required
 
 bp = Blueprint("terminal", __name__)
@@ -97,12 +98,7 @@ def register_terminal_ws(app, sock, security_path: str, get_db):
         # role without Terminal, or a site-restricted admin could open a
         # root shell by connecting straight to this URL.
         role = session.get("role")
-        permissions = set((session.get("permissions") or "").split(","))
-        if not (
-            role == "super_admin"
-            or (role == "admin" and not session.get("site_scope"))
-            or (role == "custom" and "terminal" in permissions)
-        ):
+        if role == "viewer" or not session_has_feature(session, "terminal") or (role == "admin" and session.get("site_scope")):
             ws.close()
             return
 

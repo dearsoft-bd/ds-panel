@@ -6,9 +6,8 @@
   <h2>Account</h2>
   <p class="muted small">
     <b>Super Admin</b> can do everything, including managing every other account — the only role that can
-    create users, change roles, or restrict an Admin to specific sites. <b>Admin</b> has full access to
-    everything except user management — unless a Super Admin restricts it to one or more sites below, in
-    which case it can only see/manage those sites' Website and File Manager pages, nothing else at all.
+    create users, change roles, or decide what an Admin can do. <b>Admin</b> gets exactly the features, sites,
+    user-creation right and disk display you set for it in <a href="{{ base_url }}/roles">Role Manager</a>.
     <b>Viewer</b> can see every page but is blocked from any change. <b>Custom</b> can only see and use the
     specific feature areas checked for that account — everything else is completely hidden, not just read-only.
   </p>
@@ -37,7 +36,7 @@
       </div>
     </div>
     <div id="add-user-scope" style="display:none; flex-basis:100%; margin-top:10px;">
-      <label class="checkbox-label"><input type="checkbox" name="site_restricted"> Restrict to specific sites only (locks this Admin to just the checked site(s)' Website + File Manager — nothing else)</label>
+      <label class="checkbox-label"><input type="checkbox" name="site_restricted"> Restrict to specific sites only (fine-tune its features afterwards in Role Manager)</label>
       <div class="perm-checkbox-grid" style="margin-top:8px;">
         {% for s in sites %}
         <label><input type="checkbox" name="site_scope" value="{{ s.id }}"> {{ s.domain }}</label>
@@ -97,22 +96,9 @@
         </td>
       </tr>
       <tr id="scope-row-{{ u.id }}" style="{{ '' if u.role == 'admin' else 'display:none;' }}">
-        <td colspan="6">
-          <form method="post" action="{{ base_url }}/account/{{ u.id }}/site-scope">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="muted small" style="margin-bottom:6px;">
-              Restrict '{{ u.username }}' to specific sites only (unchecking every box below removes the
-              restriction — full admin access again):
-            </div>
-            <div class="perm-checkbox-grid">
-              {% for s in sites %}
-              <label><input type="checkbox" name="site_scope" value="{{ s.id }}" {{ "checked" if s.id in u.site_scope_set }}> {{ s.domain }}</label>
-              {% else %}
-              <span class="muted small">No sites exist yet.</span>
-              {% endfor %}
-            </div>
-            <button type="submit" style="margin-top:8px;">Save Site Restriction</button>
-          </form>
+        <td colspan="6" class="muted small">
+          Features, site restriction, user creation and disk display for '{{ u.username }}' are set in
+          <a href="{{ base_url }}/roles">Role Manager</a>.
         </td>
       </tr>
       {% else %}
