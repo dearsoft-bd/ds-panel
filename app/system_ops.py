@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -884,6 +885,243 @@ def stop_node_app(domain: str) -> None:
     # deleting a site should always succeed at cleanup, not get stuck.
     subprocess.run(["pm2", "delete", name], capture_output=True, text=True)
     subprocess.run(["pm2", "save"], capture_output=True, text=True)
+
+
+# ---- Python app hosting (git deploy + venv + systemd) ----------------------
+# Deliberately NOT pm2/Node-style: a Python site is deployed FROM a git
+# repo (no File Manager upload step at all — "git pull" is the only way its
+# code ever changes) and kept alive by a per-site systemd unit rather than
+# pm2, since pm2 is a Node-ecosystem tool and systemd is already a hard
+# dependency of this panel. install.sh installs python3.11 and python3.12
+# (deadsnakes PPA) so either is selectable per site, same idea as PHP.
+
+ALLOWED_PYTHON_VERSIONS = ["3.11", "3.12"]
+DEFAULT_PYTHON_VERSION = "3.11"
+
+# Kept in its own range, separate from NODE_PORT_RANGE_START/END above, even
+# though both live in the same `sites.node_port` DB column (a site is only
+# ever one type) — this way a Python site and a Node site can never be
+# allocated the same local port even if a future refactor ever ran both
+# allocators without cross-checking each other's assigned values.
+PYTHON_PORT_RANGE_START = 4001
+PYTHON_PORT_RANGE_END = 4999
+
+# https:// or git@ SSH form only — deliberately does not allow a bare
+# "git://" or local file path, since either could be abused to reach
+# something other than an actual remote repository. Validated in addition
+# to (not instead of) every git call using an argument list (rule 1 above).
+GIT_REPO_RE = re.compile(r"^(https://[A-Za-z0-9_.\-]+(/[A-Za-z0-9_.\-]+)+(\.git)?|git@[A-Za-z0-9_.\-]+:[A-Za-z0-9_.\-/]+(\.git)?)$")
+
+DEFAULT_PYTHON_START_COMMAND = "gunicorn --bind 127.0.0.1:$PORT app:app --workers 2"
+
+# The start command is written into a root-owned systemd unit inside a
+# bash -lc '...' string, so it must never be able to break out of either:
+# no quotes, backslashes, newlines, ;, &, |, backticks or redirects. A
+# newline alone would let it append e.g. "ExecStartPost=+/bin/sh ..." — the
+# "+" prefix runs as root regardless of User=www-data.
+START_COMMAND_RE = re.compile(r"^[A-Za-z0-9_\-.:/$=,@%+ ]{1,300}$")
+
+
+def is_valid_start_command(command: str) -> bool:
+    return bool(START_COMMAND_RE.fullmatch(command))
+
+
+def installed_python_versions() -> list[str]:
+    """The ALLOWED_PYTHON_VERSIONS actually present on this server — install.sh
+    adds 3.12, but a server installed before that only has 3.11 until
+    someone runs `apt-get install python3.12 python3.12-venv`."""
+    return [v for v in ALLOWED_PYTHON_VERSIONS if shutil.which(f"python{v}")]
+
+
+def is_valid_git_repo_url(url: str) -> bool:
+    return bool(GIT_REPO_RE.fullmatch(url)) and ".." not in url
+
+
+def allocate_python_port(existing_ports: list[int]) -> int:
+    """Same idea as allocate_node_port() — `existing_ports` is the caller's
+    current `sites.node_port` column values (shared with Node sites).
+    """
+    taken = set(existing_ports)
+    for port in range(PYTHON_PORT_RANGE_START, PYTHON_PORT_RANGE_END + 1):
+        if port not in taken:
+            return port
+    raise SystemOpError("No free port available in the Python app range.")
+
+
+PYTHON_VHOST_TEMPLATE = """server {{
+    listen 80;
+    listen [::]:80;
+    server_name {domain};
+    client_max_body_size 1024m;
+
+    location / {{
+        proxy_pass http://127.0.0.1:{python_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }}
+}}
+"""
+
+
+def write_python_nginx_vhost(domain: str, python_port: int, extra_domains: list[str] | None = None) -> Path:
+    server_name = _server_names(domain, extra_domains)
+
+    config_path = NGINX_AVAILABLE / f"{domain}.conf"
+    config_path.write_text(
+        PYTHON_VHOST_TEMPLATE.format(domain=server_name, python_port=python_port),
+        encoding="utf-8",
+    )
+
+    enabled_link = NGINX_ENABLED / f"{domain}.conf"
+    if not enabled_link.exists():
+        enabled_link.symlink_to(config_path)
+
+    _run(["nginx", "-t"])
+    _run(["systemctl", "reload", "nginx"])
+    return config_path
+
+
+def clone_python_repo(domain: str, git_repo: str) -> Path:
+    """Deploys a Python site by cloning straight into its document root —
+    deliberately NOT via create_site_directory() first, since that drops a
+    placeholder index.html and `git clone` refuses to clone into a
+    non-empty directory.
+    """
+    if not is_valid_domain(domain):
+        raise SystemOpError(f"Invalid domain: {domain!r}")
+    if not is_valid_git_repo_url(git_repo):
+        raise SystemOpError(f"'{git_repo}' doesn't look like a valid git repository URL.")
+
+    root = document_root_for(domain)
+    if root.exists() and any(root.iterdir()):
+        raise SystemOpError(f"{root} already exists and is not empty — refusing to clone over it.")
+    root.parent.mkdir(parents=True, exist_ok=True)
+
+    # GIT_TERMINAL_PROMPT=0: a private repo must fail fast with an auth
+    # error, not hang this request waiting for a username prompt.
+    _run(["env", "GIT_TERMINAL_PROMPT=0", "git", "clone", "--", git_repo, str(root)], timeout=180)
+    own_www_data(root)
+    return root
+
+
+def remove_python_checkout(domain: str) -> None:
+    """Undo a clone_python_repo() whose later setup steps failed, so the
+    same domain can be retried (clone refuses a non-empty directory). Only
+    ever called right after this request's own successful clone."""
+    root = document_root_for(domain)
+    if root.is_dir():
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def pull_python_repo(domain: str) -> None:
+    """Re-deploy: fetch and hard-reset an existing Python site's checkout to
+    its remote branch's latest commit. This — not a File Manager upload —
+    is the entire "git-based deploy" story for this site type: click
+    Redeploy after pushing to the repo and the panel does the rest.
+    """
+    root = document_root_for(domain)
+    if not (root / ".git").is_dir():
+        raise SystemOpError(f"{root} is not a git checkout — can't redeploy.")
+
+    # The checkout is owned by www-data but the panel runs git as root —
+    # without safe.directory, git >= 2.35.2 refuses every command here with
+    # "detected dubious ownership in repository".
+    git = ["env", "GIT_TERMINAL_PROMPT=0", "git", "-c", f"safe.directory={root}", "-C", str(root)]
+    branch = _run(git + ["rev-parse", "--abbrev-ref", "HEAD"], timeout=15).stdout.strip()
+    _run(git + ["fetch", "origin", branch], timeout=120)
+    _run(git + ["reset", "--hard", f"origin/{branch}"], timeout=60)
+    own_www_data(root)
+
+
+def create_python_venv(document_root: Path, python_version: str) -> Path:
+    if python_version not in ALLOWED_PYTHON_VERSIONS:
+        raise SystemOpError(f"Unsupported Python version: {python_version!r}")
+
+    venv_path = document_root / ".venv"
+    _run([f"python{python_version}", "-m", "venv", str(venv_path)], timeout=120)
+    own_www_data(venv_path)
+
+    # requirements.txt comes from an arbitrary git repo, and installing a
+    # source package runs its setup code — so pip runs as www-data (the
+    # same user the site itself runs as), never as the panel's root.
+    requirements = document_root / "requirements.txt"
+    if requirements.is_file():
+        pip = venv_path / "bin" / "pip"
+        _run(
+            ["runuser", "-u", "www-data", "--", "env", "HOME=/tmp", "PIP_NO_CACHE_DIR=1",
+             str(pip), "install", "-r", str(requirements)],
+            timeout=900,
+        )
+    return venv_path
+
+
+PYTHON_SYSTEMD_UNIT_TEMPLATE = """[Unit]
+Description=DS Panel Python site: {domain}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={document_root}
+Environment=PORT={port}
+ExecStart=/bin/bash -lc 'source "{venv_path}/bin/activate" && exec {start_command}'
+Restart=on-failure
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _python_service_name(domain: str) -> str:
+    if not is_valid_domain(domain):
+        raise SystemOpError(f"Invalid domain: {domain!r}")
+    return f"dearsoft-py-{domain}"
+
+
+def write_python_systemd_unit(domain: str, document_root: Path, venv_path: Path, port: int, start_command: str) -> Path:
+    name = _python_service_name(domain)
+    start_command = (start_command or DEFAULT_PYTHON_START_COMMAND).strip()
+    if not is_valid_start_command(start_command):
+        raise SystemOpError("Start command may only contain letters, digits, spaces and - _ . : / $ = , @ % +")
+    unit_path = Path("/etc/systemd/system") / f"{name}.service"
+    unit_path.write_text(
+        PYTHON_SYSTEMD_UNIT_TEMPLATE.format(
+            domain=domain,
+            document_root=document_root,
+            port=port,
+            venv_path=venv_path,
+            start_command=start_command,
+        ),
+        encoding="utf-8",
+    )
+    _run(["systemctl", "daemon-reload"], timeout=30)
+    return unit_path
+
+
+def start_python_app(domain: str) -> None:
+    _run(["systemctl", "enable", "--now", _python_service_name(domain)], timeout=30)
+
+
+def restart_python_app(domain: str) -> None:
+    _run(["systemctl", "restart", _python_service_name(domain)], timeout=30)
+
+
+def stop_python_app(domain: str) -> None:
+    name = _python_service_name(domain)
+    # Not an error if it was never running (e.g. start failed earlier) —
+    # deleting a site should always succeed at cleanup, not get stuck.
+    subprocess.run(["systemctl", "disable", "--now", name], capture_output=True)
+    unit_path = Path("/etc/systemd/system") / f"{name}.service"
+    unit_path.unlink(missing_ok=True)
+    subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
 
 
 # ---- One-click app installer (Phase 7) -------------------------------------

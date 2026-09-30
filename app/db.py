@@ -252,3 +252,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
     _add_column_if_missing(conn, "sites", "cdn_zone_id", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "sites", "cdn_api_token", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "sites", "cdn_secret_key", "TEXT NOT NULL DEFAULT ''")
+
+    # Python site hosting (systemd + git-based deploy) — node_port is reused
+    # as the Python app's local port too (a site is only ever one type, so
+    # one shared "internal port" column is enough; system_ops keeps the two
+    # types' port ranges non-overlapping anyway as a belt-and-suspenders).
+    _add_column_if_missing(conn, "sites", "python_version", "TEXT NOT NULL DEFAULT '3.11'")
+    _add_column_if_missing(conn, "sites", "git_repo", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "sites", "start_command", "TEXT NOT NULL DEFAULT ''")

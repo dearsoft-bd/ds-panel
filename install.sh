@@ -43,20 +43,24 @@ export DEBIAN_FRONTEND=noninteractive
 echo "==> Installing system dependencies"
 apt-get update -qq
 apt-get install -y -qq software-properties-common python3 python3-venv python3-pip openssl rsync \
-    nginx certbot python3-certbot-nginx mariadb-server ufw cron unzip composer >/dev/null
+    nginx certbot python3-certbot-nginx mariadb-server ufw cron unzip composer git >/dev/null
 systemctl enable --quiet --now mariadb
 systemctl enable --quiet --now cron
 
-echo "==> Installing Python 3.11 (deadsnakes PPA)"
-# The panel's venv is built against 3.11 specifically. Ubuntu ships whatever
-# its own release carries as "python3" (3.10 on 22.04, 3.12 on 24.04) — never
-# reliably 3.11 — so this is pinned explicitly the same way PHP's multiple
-# versions are pinned above, rather than trusting the distro default.
-if ! command -v python3.11 >/dev/null 2>&1; then
-    add-apt-repository -y ppa:deadsnakes/ppa >/dev/null 2>&1
-    apt-get update -qq
-    apt-get install -y -qq python3.11 python3.11-venv python3.11-dev >/dev/null
-fi
+echo "==> Installing Python 3.11 + 3.12 (deadsnakes PPA)"
+# The panel's own venv is built against 3.11 specifically. Ubuntu ships
+# whatever its own release carries as "python3" (3.10 on 22.04, 3.12 on
+# 24.04) — never reliably 3.11 — so this is pinned explicitly the same way
+# PHP's multiple versions are pinned below, rather than trusting the distro
+# default. 3.12 is installed alongside it (not instead of it) so a hosted
+# Python site can pick either version per site, same idea as PHP.
+for PYV in 3.11 3.12; do
+    if ! command -v "python${PYV}" >/dev/null 2>&1; then
+        add-apt-repository -y ppa:deadsnakes/ppa >/dev/null 2>&1
+        apt-get update -qq
+        apt-get install -y -qq "python${PYV}" "python${PYV}-venv" "python${PYV}-dev" >/dev/null
+    fi
+done
 
 echo "==> Installing PHP 7.2 (legacy), 8.1 (default), 8.2, 8.5 via ppa:ondrej/php"
 # Ubuntu 24.04's own repos only ship one PHP version — this PPA is the

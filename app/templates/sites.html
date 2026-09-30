@@ -14,7 +14,7 @@
     <input type="email" name="admin_email" placeholder="admin@example.com (for SSL)">
     <select name="site_type" id="site-type-select" onchange="dsToggleSiteType()">
       {% for t in site_types %}
-      <option value="{{ t }}">{{ "Node.js" if t == "node" else "PHP" }}</option>
+      <option value="{{ t }}">{{ "Node.js" if t == "node" else ("Python" if t == "python" else "PHP") }}</option>
       {% endfor %}
     </select>
     <select name="php_version" id="php-version-select">
@@ -22,6 +22,15 @@
       <option value="{{ v }}" {{ "selected" if v == default_php_version }}>PHP {{ v }}{{ " (default)" if v == default_php_version }}</option>
       {% endfor %}
     </select>
+    <select name="python_version" id="python-version-select" style="display:none">
+      {% for v in python_versions %}
+      <option value="{{ v }}" {{ "selected" if v == default_python_version }}>Python {{ v }}{{ " (default)" if v == default_python_version }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="git_repo" id="git-repo-input" style="display:none"
+           placeholder="https://github.com/you/your-app.git">
+    <input type="text" name="start_command" id="start-command-input" style="display:none"
+           placeholder="gunicorn --bind 127.0.0.1:$PORT app:app">
     <label class="checkbox-label"><input type="checkbox" name="ssl"> Issue SSL (Let's Encrypt)</label>
     <button type="submit">Add Site</button>
   </form>
@@ -34,12 +43,20 @@
     SSL issuance requires the domain's DNS to already point at this
     server's IP address before you click Add Site. Node.js sites get a
     minimal starter <code>server.js</code> and are run/kept alive via pm2.
+    Python sites are deployed straight from a git repo (no File Manager
+    upload) into a per-site virtualenv, with dependencies installed from
+    the repo's <code>requirements.txt</code> if present, and kept alive by
+    a per-site systemd service — leave "Start command" blank to use the
+    default <code>gunicorn --bind 127.0.0.1:$PORT app:app</code>.
   </p>
   {% endif %}
   <script>
     function dsToggleSiteType() {
-      const isNode = document.getElementById('site-type-select').value === 'node';
-      document.getElementById('php-version-select').style.display = isNode ? 'none' : '';
+      const type = document.getElementById('site-type-select').value;
+      document.getElementById('php-version-select').style.display = (type === 'php') ? '' : 'none';
+      document.getElementById('python-version-select').style.display = (type === 'python') ? '' : 'none';
+      document.getElementById('git-repo-input').style.display = (type === 'python') ? '' : 'none';
+      document.getElementById('start-command-input').style.display = (type === 'python') ? '' : 'none';
     }
   </script>
 
@@ -55,6 +72,8 @@
         <td class="muted">
           {% if site.site_type == "node" %}
             Node.js (port {{ site.node_port }})
+          {% elif site.site_type == "python" %}
+            Python {{ site.python_version }} (port {{ site.node_port }})
           {% else %}
             PHP {{ site.php_version }}
           {% endif %}
@@ -80,6 +99,13 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="admin_email" class="ssl-email-field">
             <button type="submit" class="link-button db-btn-ssl">Enable SSL</button>
+          </form>
+          {% endif %}
+          {% if site.site_type == "python" %}
+          <form method="post" action="{{ base_url }}/sites/{{ site.id }}/redeploy" style="display:inline"
+                onsubmit="return confirm('Pull the latest commit for {{ site.domain }} and restart it?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button db-btn-backup">Redeploy</button>
           </form>
           {% endif %}
           <form method="post" action="{{ base_url }}/sites/{{ site.id }}/delete" style="display:inline"

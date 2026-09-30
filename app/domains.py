@@ -38,6 +38,8 @@ def index():
 def _regenerate_vhost(site_row, extra_domains):
     if site_row["site_type"] == "node":
         system_ops.write_node_nginx_vhost(site_row["domain"], site_row["node_port"], extra_domains=extra_domains)
+    elif site_row["site_type"] == "python":
+        system_ops.write_python_nginx_vhost(site_row["domain"], site_row["node_port"], extra_domains=extra_domains)
     else:
         system_ops.write_nginx_vhost(site_row["domain"], site_row["php_version"], extra_domains=extra_domains)
 

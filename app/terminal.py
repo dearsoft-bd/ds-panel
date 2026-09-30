@@ -20,12 +20,9 @@ No new dependency for the PTY bridge itself — just the stdlib `pty` module
 wrapping a real `/bin/bash`, piped to the browser via flask-sock.
 """
 import errno
-import fcntl
 import os
-import pty
 import select
 import struct
-import termios
 
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session
 
@@ -122,6 +119,8 @@ def register_terminal_ws(app, sock, security_path: str, get_db):
         finally:
             db.close()
 
+        import pty  # Unix-only; imported here so the app still boots on Windows for dev
+
         pid, fd = pty.fork()
         if pid == 0:
             os.environ["TERM"] = "xterm-256color"
@@ -190,5 +189,8 @@ def _bridge(ws, fd):
 
 
 def _resize_pty(fd, rows: int, cols: int) -> None:
+    import fcntl
+    import termios
+
     winsize = struct.pack("HHHH", rows, cols, 0, 0)
     fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
